@@ -4,7 +4,6 @@ import { Nav, type SessionUser } from '@/components/ui/Nav';
 import { SiteFooter } from '@/components/ui/SiteFooter';
 import { ToastProvider } from '@/components/ui/Toast';
 import { getSession } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
 import '@/styles/globals.css';
 
@@ -29,16 +28,17 @@ export const viewport: Viewport = {
   ],
 };
 
-/** 读取当前会话用户（昵称展示用），未登录返回 null。 */
+/**
+ * 读取当前会话用户（昵称展示用），未登录返回 null。
+ *
+ * P0-B 性能优化：不再查 DB 取 nickname，直接用 session 中的 username 做显示名，
+ * 省去每次请求的 prisma.user.findUnique 往返。
+ * SessionPayload 含 username/role，此处映射到 Nav 所需的 { nickname, role }。
+ */
 async function resolveSessionUser(): Promise<SessionUser | null> {
   const session = await getSession();
   if (!session) return null;
-  const row = await prisma.user.findUnique({
-    where: { id: session.userId },
-    select: { nickname: true, role: true },
-  });
-  if (!row) return null;
-  return { nickname: row.nickname, role: row.role };
+  return { nickname: session.username, role: session.role };
 }
 
 /** 根布局：主题初始化脚本 + 导航 + 内容 + 页脚 + Toast 容器。 */

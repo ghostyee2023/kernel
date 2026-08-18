@@ -8,6 +8,9 @@
  *     joinedAt asc），活动榜头展示活动名与截止时间。
  *
  * 视觉真源：prototype `#view-rank` + DESIGN.md §4.6 / §9 ③。
+ *
+ * P0-A 性能优化：rank 页无 session 依赖（纯公开数据），改为 ISR 5 分钟缓存，
+ * 避免每次请求都查 DB。revalidate=300 秒后自动重新生成。
  */
 
 import type { Metadata } from 'next';
@@ -20,7 +23,8 @@ import { formatCount, formatDate } from '@/lib/format';
 import * as projectService from '@/lib/project-service';
 import type { CampaignRankItemDTO, ProjectDTO } from '@/lib/types';
 
-export const dynamic = 'force-dynamic';
+/** ISR：5 分钟重新验证一次，替代 force-dynamic。 */
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: '排行榜',

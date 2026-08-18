@@ -108,18 +108,58 @@ async function locate(
 export async function GET(_request: Request, context: Context): Promise<Response> {
   try {
     const { slug, path: pathParts } = await context.params;
-    const located = await locate(slug, pathParts);
-    if (located instanceof Response) return located;
 
-    const file = await readProjectFile(slug, located.relPath);
+    // 1. 查 DB 确认作品状态
+    const resolved = await projectService.resolveForSandbox(slug);
+    if (!resolved.ok) {
+      if (resolved.reason === 'ARCHIVED') return NextResponse.redirect(buildStatusUrl(slug), 302);
+      return plain(404, '作品不存在或已下线');
+    }
+
+    // 外链作品没有磁盘目录，沙箱不承载
+    if (resolved.sourceType === SOURCE_TYPE.EXTERNAL_URL) {
+      return plain(404, '该作品为外链形式，请从详情页跳转');
+    }
+
+    // 2. 解析路径
+    const normalized = normalizeRequestPath(pathParts);
+    if (normalized === null) {
+      console.warn(`[sandbox][reject-path] slug=${slug} parts=${JSON.stringify(pathParts)}`);
+      return plain(403, '非法路径');
+    }
+
+    // 请求根路径时落到入口文件
+    const relPath = normalized === '' ? resolved.entryFile : normalized;
+    if (relPath === '') {
+      return plain(404, '未配置入口文件');
+    }
+
+    // 3. 直接读文件（去掉 headBlob 一步，省一次 Blob 往返）
+    let file: { buffer: Buffer; size: number; contentType: string } | null = null;
+    try {
+      file = await readProjectFile(slug, relPath);
+    } catch (error) {
+      // storage 层二次校验（relPath 归一化 + .kernel/ 硬拒 + 穿越）失败 → 403
+      if (error instanceof AppError) {
+        console.warn(`[sandbox][traversal] slug=${slug} rel=${relPath}`);
+        return plain(403, '非法路径');
+      }
+      throw error;
+    }
+
+    // 不存在、或命中目录，一律 404：不做目录列举，避免泄漏文件清单
     if (!file) return plain(404, '文件不存在');
 
-    const headers = buildSecurityHeaders(file.contentType, cacheControlOf(located.relPath));
+    // 4. 构建响应
+    const headers = buildSecurityHeaders(file.contentType, cacheControlOf(relPath));
     headers.set('Content-Length', String(file.size));
 
-    // 只有请求入口文件（即整页访问）才计一次浏览量，静态资源不计
+    // 5. 浏览量异步自增（fire-and-forget，不阻塞响应）
+    //    只有请求入口文件（即整页访问）才计一次浏览量，静态资源不计
     if (!pathParts || pathParts.length === 0) {
-      await projectService.incrementView(slug);
+      projectService.incrementView(slug).catch((e: unknown) =>
+        console.warn('[sandbox][view] failed', e),
+      );
     }
 
     return new Response(new Uint8Array(file.buffer), { status: 200, headers });

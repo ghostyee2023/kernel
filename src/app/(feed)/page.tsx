@@ -3,6 +3,9 @@
  *
  * Server Component 直接查领域服务：首屏即完整 HTML，无客户端瀑布请求。
  * 搜索与翻页状态全部放在 URL 上，`<Suspense>` 只包住读 searchParams 的客户端筛选条。
+ *
+ * P0-A 性能优化：首页依赖 session + favorites，暂保留 force-dynamic。
+ * 但把 stats() 结果做内存缓存（30 秒 TTL），减少每次请求的 DB 往返。
  */
 
 import type { Metadata } from 'next';
@@ -16,9 +19,30 @@ import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import * as favoriteService from '@/lib/favorite-service';
 import { formatBytes, formatCount } from '@/lib/format';
 import * as projectService from '@/lib/project-service';
+import type { PlazaStats } from '@/lib/project-service';
 import type { ProjectListQuery } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * stats() 内存缓存（30 秒 TTL）。
+ *
+ * 首页每次请求都调 stats()，但统计数据（作品数/浏览量/体积）变化不频繁，
+ * 缓存 30 秒可减少大量重复 DB 聚合查询。进程级缓存，各实例独立。
+ */
+const STATS_CACHE_TTL_MS = 30_000;
+let statsCache: { value: PlazaStats; expireAt: number } | null = null;
+
+/** 带内存缓存的 stats()：TTL 内直接返回缓存值，过期后重新查询。 */
+async function getCachedStats(): Promise<PlazaStats> {
+  const now = Date.now();
+  if (statsCache !== null && statsCache.expireAt > now) {
+    return statsCache.value;
+  }
+  const value = await projectService.stats();
+  statsCache = { value, expireAt: now + STATS_CACHE_TTL_MS };
+  return value;
+}
 
 export const metadata: Metadata = {
   title: '作品广场',
@@ -75,7 +99,7 @@ export default async function PlazaPage({ searchParams }: PageProps) {
   const session = await getSession();
   const [result, summary, selectable, favoriteIds] = await Promise.all([
     projectService.list(listQuery),
-    projectService.stats(),
+    getCachedStats(),
     campaignService.listSelectable(),
     session ? favoriteService.myFavoriteIds(session.userId) : Promise.resolve([] as string[]),
   ]);
