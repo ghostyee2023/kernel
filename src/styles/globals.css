@@ -103,6 +103,8 @@
   --shadow-2xl: 0 40px 80px rgba(14, 16, 20, 0.14), 0 8px 20px rgba(14, 16, 20, 0.06);
   --shadow-brand-glow: 0 8px 24px rgba(76, 91, 212, 0.24);
   --shadow-magenta-glow: 0 8px 24px rgba(224, 72, 154, 0.22);
+  /* 按钮内嵌高光：顶部 1px 白色反光，制造"实体感" */
+  --highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.16);
 
   /* —— 品牌渐变（唯一真源，靛→青→品红三锚点） —— */
   --brand-gradient: linear-gradient(100deg, #4C5BD4 0%, #12B8B0 48%, #E0489A 100%);
@@ -164,6 +166,12 @@
   --tint-primary: color-mix(in srgb, var(--color-primary) 20%, transparent);
   --tint-cyan: color-mix(in srgb, var(--color-accent-cyan) 18%, transparent);
   --tint-magenta: color-mix(in srgb, var(--color-accent-magenta) 18%, transparent);
+  /* 深色画廊：品牌渐变收敛为双锚点（靛→青），去掉品红，降低廉价感 */
+  --brand-gradient: linear-gradient(100deg, #8E97F0 0%, #3EC9C2 100%);
+  --brand-gradient-soft: linear-gradient(135deg, #8E97F0, #3EC9C2);
+  /* 深色下主色按钮 glow 用高亮主色、inset 高光收敛 */
+  --shadow-brand-glow: 0 8px 24px rgba(127, 138, 240, 0.28);
+  --highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.10);
 }
 
 /* ============================================================================
@@ -312,12 +320,21 @@
   .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
   .btn:disabled { opacity: .5; pointer-events: none; }
 
-  .btn-primary { background: var(--color-primary); color: var(--color-on-primary); box-shadow: var(--shadow-xs); }
-  .btn-primary:hover { background: var(--color-primary-hover); box-shadow: var(--shadow-brand-glow); transform: translateY(-1px); }
+  .btn-primary { background: var(--color-primary); color: var(--color-on-primary); box-shadow: var(--shadow-xs), var(--highlight-inset); }
+  .btn-primary:hover { background: var(--color-primary-hover); box-shadow: var(--shadow-brand-glow), var(--highlight-inset); transform: translateY(-1px); }
   .btn-primary:active { background: var(--color-primary-active); transform: translateY(0); }
 
   .btn-secondary { background: var(--surface-canvas); color: var(--text-primary); border: 1px solid var(--border-default); }
   .btn-secondary:hover { background: var(--gray-50); border-color: var(--border-strong); }
+
+  /* 深色画廊：secondary 改玻璃态，避免深色画布上的实心浅块显得突兀 */
+  [data-theme="dark"] .btn-secondary {
+    background: color-mix(in srgb, var(--surface-elevated) 62%, transparent);
+  }
+  [data-theme="dark"] .btn-secondary:hover {
+    background: color-mix(in srgb, var(--surface-elevated) 88%, transparent);
+    border-color: var(--border-strong);
+  }
 
   .btn-ghost { height: 34px; padding: 0 12px; border-radius: 7px; color: var(--text-secondary); }
   .btn-ghost:hover { background: var(--gray-100); color: var(--text-primary); }
@@ -378,6 +395,12 @@
   .dot-live::after {
     content: ""; position: absolute; inset: -3px;
     border-radius: 50%; border: 1px solid currentColor; opacity: .34;
+    animation: dot-pulse 1.8s var(--ease) infinite;
+  }
+  @keyframes dot-pulse {
+    0%   { transform: scale(.55); opacity: .5; }
+    70%  { transform: scale(1.55); opacity: 0; }
+    100% { transform: scale(1.55); opacity: 0; }
   }
 
   .tag {
@@ -402,6 +425,12 @@
     backdrop-filter: saturate(180%) blur(16px);
     -webkit-backdrop-filter: saturate(180%) blur(16px);
     border-bottom: 1px solid var(--border-subtle);
+  }
+  /* 深色画廊：导航底部 1px 主色渐变高光分割线，提升精致度 */
+  [data-theme="dark"] .nav::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-primary) 32%, transparent) 50%, transparent);
+    pointer-events: none;
   }
   .nav__inner {
     max-width: var(--container-wide); margin: 0 auto;
@@ -527,14 +556,29 @@
   }
 
   /* ----------------------------------------------------------------- Hero */
-  .hero { padding: 64px 0 40px; position: relative; overflow: hidden; z-index: 1; text-align: center; }
+  .hero { padding: 88px 0 56px; position: relative; overflow: hidden; z-index: 1; text-align: center; }
+  /* 顶部主色光晕：径向渐变，营造"种子破土"的光感；pointer-events none 不挡交互 */
+  .hero::before {
+    content: ""; position: absolute; inset: -40% -20% auto; height: 560px; z-index: 0;
+    background: radial-gradient(50% 50% at 50% 20%, color-mix(in srgb, var(--color-primary) 13%, transparent), transparent 72%);
+    pointer-events: none;
+  }
+  /* 内容层压过背景装饰（粒子 z-index 1 / grid-overlay 0 / 光晕 0） */
+  .hero > .container-wide { position: relative; z-index: 2; }
+  /* 粒子「种子星尘」：铺满 hero 背景，不挡交互，滚出视口淡出（JS 控制 opacity） */
+  .hero-canvas {
+    position: absolute; inset: 0; z-index: 3; pointer-events: none;
+    opacity: 1; transition: opacity .4s var(--ease);
+  }
   .hero__eyebrow {
     display: inline-flex; align-items: center; gap: 8px;
     height: 28px; padding: 0 12px; border-radius: var(--radius-pill);
     background: var(--color-primary-soft); color: var(--color-primary);
-    font-size: 12px; font-weight: 500; margin-bottom: 20px;
+    font-size: 12px; font-weight: 500; letter-spacing: .08em; margin-bottom: 24px;
+    text-decoration: none; transition: transform .16s var(--ease), background .16s var(--ease), border-color .16s var(--ease);
   }
-  .hero__title { font-size: 52px; font-weight: 600; line-height: 1.06; letter-spacing: -2px; max-width: 22em; margin-inline: auto; text-wrap: balance; }
+  .hero__eyebrow:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--color-primary-soft) 86%, var(--color-primary)); }
+  .hero__title { font-size: 56px; font-weight: 600; line-height: 1.08; letter-spacing: -2.2px; max-width: 22em; margin-inline: auto; text-wrap: balance; }
   /* 全站唯一一处渐变文字（DESIGN.md Don'ts #9） */
   .hero__title em {
     font-style: normal;
@@ -554,14 +598,39 @@
   .hero__slogan i { color: var(--text-tertiary); font-style: normal; letter-spacing: 0; }
   .hero__actions { margin-top: 28px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: center; }
   .hero__stats {
-    margin-top: 44px; display: flex; gap: 40px; flex-wrap: wrap; justify-content: center;
-    padding-top: 28px; border-top: 1px solid var(--border-subtle);
+    margin-top: 56px; display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+  }
+  .hero__stats > div {
+    min-width: 172px; padding: 22px 30px;
+    border-radius: var(--radius-card);
+    background: color-mix(in srgb, var(--surface-elevated) 55%, transparent);
+    border: 1px solid var(--border-subtle);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-md);
+  }
+
+  /* 深色画廊（默认主题）：光晕降饱和、eyebrow 改玻璃态，避免大色块廉价感 */
+  [data-theme="dark"] .hero::before {
+    background: radial-gradient(52% 52% at 50% 18%, color-mix(in srgb, var(--color-primary) 10%, transparent), transparent 74%);
+  }
+  [data-theme="dark"] .hero__eyebrow {
+    background: color-mix(in srgb, var(--surface-elevated) 62%, transparent);
+    border: 1px solid var(--border-default);
+    color: var(--color-primary);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  [data-theme="dark"] .hero__eyebrow:hover {
+    background: color-mix(in srgb, var(--surface-elevated) 84%, transparent);
+    border-color: var(--color-primary-border);
+    transform: translateY(-1px);
   }
   .stat__num {
     font-family: var(--font-mono); font-variant-numeric: tabular-nums;
     font-size: 26px; font-weight: 600; letter-spacing: -.6px;
   }
-  .stat__label { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+  .stat__label { font-size: 12px; color: var(--text-tertiary); margin-top: 3px; letter-spacing: .08em; }
   .hero__grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; }
   .hero__col--text { max-width: 600px; }
 
@@ -970,6 +1039,7 @@
   .nav__links { display: none; }
   .nav__hamburger { display: grid; }
   .hero { padding: 40px 0 28px; }
+  .hero::before { height: 360px; opacity: .8; }
   .hero__title { font-size: 32px; letter-spacing: -1.2px; }
   .t-display-lg { font-size: 26px; letter-spacing: -.8px; }
   .t-headline { font-size: 22px; letter-spacing: -.4px; }
@@ -2173,7 +2243,7 @@
   .grid .card--project:nth-child(n + 6),
   .camp-grid .camp-card:nth-child(n + 6) { animation-delay: 200ms; }
 
-  /* --------------------------------------------------------- 榜单入场 */
+  /* ----------------------------------------------------------- 榜单入场 */
   /* podium 项自带 translateY 位移（.podium-item--*），改在子元素上做 fadeUp，
      避免 keyframe transform 与基础 transform 冲突导致跳变；
      视觉顺序 [第2名, 第1名, 第3名] → 第 1 名优先入场 */
@@ -2181,6 +2251,7 @@
   .podium-item:nth-child(1) > * { animation-delay: 100ms; }
   .podium-item:nth-child(2) > * { animation-delay: 0ms; }
   .podium-item:nth-child(3) > * { animation-delay: 200ms; }
+
 
   .ranklist-row { animation: fadeUp .3s var(--ease) backwards; }
   .ranklist-row:nth-child(2) { animation-delay: 40ms; }

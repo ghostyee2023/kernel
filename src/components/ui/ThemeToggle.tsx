@@ -6,7 +6,7 @@ import { IconButton } from './Button';
 
 /** 亮/暗主题切换按钮。与 `THEME_INIT_SCRIPT` 共用 storage key 与 data 属性。 */
 export function ThemeToggle(): React.JSX.Element {
-  const [theme, setTheme] = React.useState<ThemeName>('light');
+  const [theme, setTheme] = React.useState<ThemeName>('dark');
   const [mounted, setMounted] = React.useState<boolean>(false);
 
   React.useEffect(() => {

@@ -47,7 +47,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const sessionUser = await resolveSessionUser();
 
   return (
-    <html lang="zh-CN" data-theme="light" suppressHydrationWarning>
+    <html lang="zh-CN" data-theme="dark" suppressHydrationWarning>
       <head>
         {/* 首帧前写入 data-theme，避免深色主题闪烁 */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />

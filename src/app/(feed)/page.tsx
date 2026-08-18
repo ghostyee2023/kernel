@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 
 import { PlazaFilterBar, ProjectGrid } from '@/components/project';
+import { HeroCanvas } from '@/components/project/HeroCanvas';
 import { getSession } from '@/lib/auth';
 import * as campaignService from '@/lib/campaign-service';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
@@ -78,11 +79,13 @@ export default async function PlazaPage({ searchParams }: PageProps) {
 
   // P1 流式：公开只读查询走 Data Cache（list/stats/selectable），SSR 不再阻塞 per-user 收藏查询；
   // 卡片星标由客户端挂载后调 GET /api/favorites 批量点亮（壳先出、星标后补）。
+  // hero：activeCampaign 判定「限时活动进行中」徽章（collecting/voting 才算，无则整行隐藏）。
   const session = await getSession();
-  const [result, summary, selectable] = await Promise.all([
+  const [result, summary, selectable, active] = await Promise.all([
     projectService.list(listQuery),
     projectService.stats(),
     campaignService.listSelectable(),
+    campaignService.activeCampaign(),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
@@ -90,11 +93,16 @@ export default async function PlazaPage({ searchParams }: PageProps) {
   return (
     <>
       <section className="hero">
+        {/* 背景装饰层：粒子「种子星尘」（客户端补绘）→ 网格 → 主色光晕，内容层在最上 */}
+        <HeroCanvas />
+        <div className="grid-overlay" aria-hidden="true" />
         <div className="container-wide">
-          <span className="hero__eyebrow">
-            <span className="dot dot-live" aria-hidden="true" />
-            本地开发桩 · P0 骨架已跑通
-          </span>
+          {active ? (
+            <a className="hero__eyebrow" href={`/campaigns/${active.slug}`}>
+              <span className="dot dot-live" aria-hidden="true" />
+              限时活动进行中 · {active.title}
+            </a>
+          ) : null}
 
           <h1 className="hero__title">
             每一件杰作，

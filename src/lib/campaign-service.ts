@@ -458,6 +458,23 @@ async function listSelectableImpl(): Promise<CampaignCardDTO[]> {
     .filter((item) => item.status === CAMPAIGN_STATUS.VOTING || item.status === CAMPAIGN_STATUS.ENDED);
 }
 
+/**
+ * 当前进行中的活动（collecting 征集期 / voting 投票期），无则 null。
+ * 首页 hero「限时活动进行中」徽章用；写入侧（create/patch/join 等）经 'campaigns' 标签失效。
+ */
+export async function activeCampaign(): Promise<{ slug: string; title: string } | null> {
+  return cached(activeCampaignImpl, ['campaigns-active'], { tags: ['campaigns'], revalidate: 60 });
+}
+async function activeCampaignImpl(): Promise<{ slug: string; title: string } | null> {
+  const row = await prisma.campaign.findFirst({
+    where: { status: { in: [CAMPAIGN_STATUS.COLLECTING, CAMPAIGN_STATUS.VOTING] } },
+    orderBy: { createdAt: 'desc' },
+    select: { slug: true, title: true },
+  });
+  if (!row) return null;
+  return { slug: row.slug, title: row.title };
+}
+
 /** 按 id 取活动（后台编辑用；draft 也可返回）。 */
 export async function getById(id: string): Promise<CampaignDTO> {
   if (typeof id !== 'string' || id.trim() === '') throw new AppError(ERROR_CODE.CAMP_NOT_FOUND);
