@@ -45,3 +45,6 @@ tmp-*
 .workbuddy/
 prisma-engines.log
 prisma-generate.log
+
+.vercel
+.env*

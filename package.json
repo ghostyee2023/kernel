@@ -43,6 +43,7 @@
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "@types/yauzl": "^2.10.3",
+    "@vercel/blob": "^2.8.0",
     "prisma": "^6.5.0",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.19.2",

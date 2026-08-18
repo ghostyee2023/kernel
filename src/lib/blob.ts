@@ -1,27 +1,15 @@
 /**
- * Vercel Blob REST 封装（零依赖，**不 import 任何 fs**）。
+ * Vercel Blob 存储封装（基于 @vercel/blob SDK）。
  *
- * 设计真源：docs/P0-Vercel试验部署设计.md §3.2 / §7.3（Q3 已拍板：REST 直调，不装 @vercel/blob）。
- *
- * 调用格式：
- *   PUT     https://api.vercel.com/v1/blob?pathname={path}
- *           Headers: Authorization: Bearer {token} · x-api-version: 7 · Content-Type: {type}
- *           可选: x-allow-overwrite · x-add-random-suffix · x-cache-control-max-age
- *   POST    https://api.vercel.com/v1/blob/delete   Body: {"urls":[...]}
- *   GET     https://api.vercel.com/v1/blob?prefix={prefix}&limit=1000[&mode=folded]
- *   HEAD    https://{storeId}.public.blob.vercel-storage.com/{path}（免鉴权）
- *   GET     https://{storeId}.public.blob.vercel-storage.com/{path}（免鉴权，读回）
+ * 设计真源：docs/P0-Vercel试验部署设计.md §3.2 / §7.3。
+ * 原方案为 REST 直调（零依赖），但实测 Vercel Blob REST API v7 对 pathname 中
+ * 含 `/` 层级的处理有 bug（pathname 被截断为 `ob`），而 @vercel/blob SDK 2.8.0
+ * 的 `put()` 正确保留了完整 pathname。故改为 SDK 直调（Q3 拍板修订）。
  *
  * 只被 src/lib/storage.ts 消费；调用方永远通过 storage 公开函数，不感知后端。
- *
- * ⚠️ x-api-version 按实施时 Vercel @vercel/blob SDK 常量对齐（约 7）；若 Vercel 变更
- *    REST 契约导致维护成本上升，回退方案是加 @vercel/blob（见设计 Q3）。
  */
 
-/** Blob 基础地址（管理面 REST）。 */
-const BLOB_API_BASE = 'https://api.vercel.com/v1/blob';
-/** REST 契约版本头（对齐 @vercel/blob SDK 常量）。 */
-const BLOB_API_VERSION = '7';
+import { put, list, head, del } from '@vercel/blob';
 
 /** 单个 Blob 元信息。 */
 export interface BlobResult {
@@ -112,26 +100,6 @@ export function blobPublicUrl(pathname: string): string {
   return `https://${blobStoreId()}.public.blob.vercel-storage.com/${encoded}`;
 }
 
-/** 管理面请求头。 */
-function authHeaders(token: string): Record<string, string> {
-  return {
-    Authorization: `Bearer ${token}`,
-    'x-api-version': BLOB_API_VERSION,
-  };
-}
-
-/** 统一解析管理面错误响应，返回可读 message。 */
-async function errorMessageOf(response: Response): Promise<string> {
-  let detail = `HTTP ${response.status}`;
-  try {
-    const text = await response.text();
-    if (text) detail = text.slice(0, 300);
-  } catch {
-    // 忽略响应体解析失败
-  }
-  return `Blob ${response.url.split('?')[0]} ${detail}`;
-}
-
 /**
  * PUT 上传（写）。
  *
@@ -141,25 +109,21 @@ async function errorMessageOf(response: Response): Promise<string> {
  * @returns 上传后的 Blob 元信息。
  */
 export async function putBlob(pathname: string, data: Buffer | Uint8Array, opts: BlobPutOptions = {}): Promise<BlobResult> {
-  const token = blobToken();
-  const url = `${BLOB_API_BASE}?pathname=${encodeURIComponent(pathname)}`;
-
-  const headers: Record<string, string> = {
-    ...authHeaders(token),
-    'Content-Type': opts.contentType ?? 'application/octet-stream',
+  const body = Buffer.isBuffer(data) ? data : Buffer.from(data);
+  const result = await put(pathname, body, {
+    access: 'public',
+    contentType: opts.contentType,
+    allowOverwrite: opts.allowOverwrite !== false,
+    addRandomSuffix: opts.addRandomSuffix === true,
+    cacheControlMaxAge: opts.cacheControlMaxAge,
+  });
+  return {
+    url: result.url,
+    pathname: result.pathname,
+    contentType: result.contentType ?? 'application/octet-stream',
+    size: 0,
+    uploadedAt: new Date().toISOString(),
   };
-  if (opts.allowOverwrite !== false) headers['x-allow-overwrite'] = 'true';
-  if (opts.addRandomSuffix === true) headers['x-add-random-suffix'] = 'true';
-  if (opts.cacheControlMaxAge !== undefined) {
-    headers['x-cache-control-max-age'] = String(opts.cacheControlMaxAge);
-  }
-
-  const response = await fetch(url, { method: 'PUT', headers, body: Buffer.from(data) });
-  if (!response.ok) {
-    throw new Error(await errorMessageOf(response));
-  }
-  const json = (await response.json()) as BlobResult;
-  return json;
 }
 
 /**
@@ -183,30 +147,24 @@ export async function getBlob(pathname: string): Promise<Buffer> {
  * @returns 文件信息；不存在时返回 null。
  */
 export async function headBlob(pathname: string): Promise<BlobHeadResult | null> {
-  const url = blobPublicUrl(pathname);
-  const response = await fetch(url, { method: 'HEAD' });
-  if (!response.ok) return null;
-  const sizeRaw = response.headers.get('content-length');
-  const size = sizeRaw ? Number.parseInt(sizeRaw, 10) : 0;
-  return { size, contentType: response.headers.get('content-type') ?? 'application/octet-stream' };
+  try {
+    const result = await head(pathname);
+    if (!result) return null;
+    return { size: result.size ?? 0, contentType: result.contentType ?? 'application/octet-stream' };
+  } catch {
+    // head() throws on non-existent; return null
+    return null;
+  }
 }
 
 /**
- * DELETE 批量删除（POST /delete）。
+ * DELETE 批量删除。
  *
  * @param urls 待删除 Blob 的公共 URL 列表。
  */
 export async function deleteBlob(urls: string[]): Promise<void> {
   if (urls.length === 0) return;
-  const token = blobToken();
-  const response = await fetch(`${BLOB_API_BASE}/delete`, {
-    method: 'POST',
-    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ urls }),
-  });
-  if (!response.ok) {
-    throw new Error(await errorMessageOf(response));
-  }
+  await del(urls);
 }
 
 /**
@@ -216,30 +174,20 @@ export async function deleteBlob(urls: string[]): Promise<void> {
  * @param opts 选项：folded 列目录 / flat 列文件。
  */
 export async function listBlob(prefix: string, opts: BlobListOptions = {}): Promise<BlobListResult> {
-  const token = blobToken();
-  const limit = opts.limit ?? 1000;
-  const params = new URLSearchParams({ prefix, limit: String(limit) });
-  if (opts.mode === 'folded') params.set('mode', 'folded');
-  if (opts.cursor) params.set('cursor', opts.cursor);
-
-  const url = `${BLOB_API_BASE}?${params.toString()}`;
-  const response = await fetch(url, { method: 'GET', headers: authHeaders(token) });
-  if (!response.ok) {
-    throw new Error(await errorMessageOf(response));
-  }
-  const json = (await response.json()) as {
-    blobs?: Array<{ url?: string; pathname?: string; size?: number; uploadedAt?: string }>;
-    hasMore?: boolean;
-    cursor?: string;
-  };
+  const result = await list({
+    prefix,
+    mode: opts.mode === 'folded' ? 'folded' : 'expanded',
+    limit: opts.limit ?? 1000,
+    cursor: opts.cursor,
+  });
   return {
-    blobs: (json.blobs ?? []).map((b) => ({
-      url: b.url ?? '',
-      pathname: b.pathname ?? '',
-      size: b.size ?? 0,
-      uploadedAt: b.uploadedAt ?? '',
+    blobs: (result.blobs ?? []).map((b) => ({
+      url: b.url,
+      pathname: b.pathname,
+      size: b.size,
+      uploadedAt: b.uploadedAt instanceof Date ? b.uploadedAt.toISOString() : String(b.uploadedAt),
     })),
-    hasMore: json.hasMore ?? false,
-    cursor: json.cursor,
+    hasMore: result.hasMore ?? false,
+    cursor: result.cursor ?? undefined,
   };
 }
