@@ -20,6 +20,7 @@ export interface DashboardTabsProps {
 const TABS: ReadonlyArray<{ key: DashboardTab; label: string; href: string }> = [
   { key: DASHBOARD_TAB.PUBLISHED, label: '我发布的', href: '/dashboard' },
   { key: DASHBOARD_TAB.JOINED, label: '我参与的活动', href: '/dashboard?tab=joined' },
+  { key: DASHBOARD_TAB.MY_VOTES, label: '我的投票', href: '/dashboard?tab=myvotes' },
   { key: DASHBOARD_TAB.FAVORITES, label: '收藏', href: '/dashboard?tab=favorites' },
 ];
 

@@ -13,7 +13,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Button, Field, Input, Select, Textarea, useToast } from '@/components/ui';
-import { CAMPAIGN_STATUS, MAX_VOTES_OPTIONS, type CampaignStatus } from '@/lib/constants';
+import { ACTIVITY_TYPE, ACTIVITY_TYPE_LABEL, CAMPAIGN_STATUS, MAX_VOTES_OPTIONS, type CampaignStatus } from '@/lib/constants';
 import type { ApiEnvelope, CampaignDTO, CampaignInput } from '@/lib/types';
 
 /** 活动状态选项。 */
@@ -66,6 +66,8 @@ export function CampaignForm({ campaignId, initial }: CampaignFormProps): React.
   const [maxVotesPerUser, setMaxVotesPerUser] = React.useState<number>(initial?.maxVotesPerUser ?? 3);
   const [allowSelfVote, setAllowSelfVote] = React.useState<boolean>(initial?.allowSelfVote ?? true);
   const [voteWeight, setVoteWeight] = React.useState<number>(initial?.voteWeight ?? 1);
+  const [activityType, setActivityType] = React.useState<string>(initial?.activityType ?? ACTIVITY_TYPE.ONLINE);
+  const [resultVisible, setResultVisible] = React.useState<boolean>(initial?.resultVisible ?? true);
   const [status, setStatus] = React.useState<CampaignStatus>(initial?.storedStatus ?? CAMPAIGN_STATUS.DRAFT);
   const [busy, setBusy] = React.useState<boolean>(false);
 
@@ -80,6 +82,8 @@ export function CampaignForm({ campaignId, initial }: CampaignFormProps): React.
     maxVotesPerUser,
     allowSelfVote,
     voteWeight,
+    activityType,
+    resultVisible,
     status,
   });
 
@@ -215,6 +219,25 @@ export function CampaignForm({ campaignId, initial }: CampaignFormProps): React.
             value={String(voteWeight)}
             onChange={(event) => setVoteWeight(Math.max(1, Number(event.target.value) || 1))}
           />
+        </Field>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+        <Field label="活动类型" htmlFor="camp-type" hint="线下活动需自行组织场地与签到">
+          <Select id="camp-type" value={activityType} onChange={(event) => setActivityType(event.target.value)}>
+            <option value={ACTIVITY_TYPE.ONLINE}>{ACTIVITY_TYPE_LABEL[ACTIVITY_TYPE.ONLINE]}</option>
+            <option value={ACTIVITY_TYPE.OFFLINE}>{ACTIVITY_TYPE_LABEL[ACTIVITY_TYPE.OFFLINE]}</option>
+          </Select>
+        </Field>
+        <Field label="投票结果公开" htmlFor="camp-result-visible" hint="关闭后：活动结束后票数/排名对外隐藏">
+          <Select
+            id="camp-result-visible"
+            value={resultVisible ? 'true' : 'false'}
+            onChange={(event) => setResultVisible(event.target.value === 'true')}
+          >
+            <option value="true">公开（默认）</option>
+            <option value="false">不公开</option>
+          </Select>
         </Field>
       </div>
 

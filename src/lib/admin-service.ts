@@ -38,6 +38,8 @@ import type {
   AdminBatchResult,
   AdminProjectDTO,
   AdminUserDTO,
+  AdminAuditQuery,
+  AuditLogDTO,
   CleanupLogDTO,
   OverviewMetrics,
   PagedResult,
@@ -475,6 +477,7 @@ export async function listUsers(query: AdminUserListQuery = {}): Promise<PagedRe
       nickname: row.nickname,
       role: row.role,
       status: row.status,
+      riskLevel: row.riskLevel,
       projectCount: countMap.get(row.id) ?? 0,
       createdAt: row.createdAt.toISOString(),
     })),
@@ -589,6 +592,48 @@ export async function listCleanupLogs(query: AdminCleanupLogQuery = {}): Promise
       success: row.success,
       message: row.message,
       detail: parseDetail(row.detail),
+      createdAt: row.createdAt.toISOString(),
+    })),
+    page,
+    pageSize,
+    total,
+  };
+}
+
+/** P2 补：审计日志分页查询（action / 操作者用户名可筛选）。 */
+export async function listAuditLogs(query: AdminAuditQuery = {}): Promise<PagedResult<AuditLogDTO>> {
+  const { page, pageSize } = normalizeAdminPaging(query.page, query.pageSize);
+  const action = query.action?.trim() ?? '';
+  const username = query.username?.trim() ?? '';
+
+  const where: Prisma.AuditLogWhereInput = {
+    ...(action ? { action } : {}),
+    ...(username
+      ? { actor: { is: { username: { contains: username } } } }
+      : {}),
+  };
+
+  const [total, rows] = await Promise.all([
+    prisma.auditLog.count({ where }),
+    prisma.auditLog.findMany({
+      where,
+      include: { actor: { select: { username: true, nickname: true } } },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+  ]);
+
+  return {
+    items: rows.map((row) => ({
+      id: row.id,
+      actorName: row.actor?.username ?? row.actor?.nickname ?? '未知',
+      action: row.action,
+      targetType: row.targetType,
+      targetId: row.targetId,
+      detail: row.detail,
+      meta: parseDetail(row.meta),
+      ip: row.ip,
       createdAt: row.createdAt.toISOString(),
     })),
     page,

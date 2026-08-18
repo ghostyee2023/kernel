@@ -92,11 +92,25 @@ export const PROJECT_CAMPAIGN_STATUS = {
 } as const;
 export type ProjectCampaignStatus = (typeof PROJECT_CAMPAIGN_STATUS)[keyof typeof PROJECT_CAMPAIGN_STATUS];
 
+/** P1 补：活动类型（ONLINE 默认，OFFLINE 线下）。 */
+export const ACTIVITY_TYPE = {
+  ONLINE: 'ONLINE',
+  OFFLINE: 'OFFLINE',
+} as const;
+export type ActivityType = (typeof ACTIVITY_TYPE)[keyof typeof ACTIVITY_TYPE];
+/** 活动类型展示文案。 */
+export const ACTIVITY_TYPE_LABEL: Record<ActivityType, string> = {
+  [ACTIVITY_TYPE.ONLINE]: '线上',
+  [ACTIVITY_TYPE.OFFLINE]: '线下',
+};
+
 /** 个人空间 Tab（P3）。URL 参数 `?tab=` 收口取值，非法值回落 published（§1.6）。 */
 export const DASHBOARD_TAB = {
   PUBLISHED: 'published',
   JOINED: 'joined',
   FAVORITES: 'favorites',
+  /** P3 补：我的投票。 */
+  MY_VOTES: 'myvotes',
 } as const;
 export type DashboardTab = (typeof DASHBOARD_TAB)[keyof typeof DASHBOARD_TAB];
 
@@ -137,6 +151,25 @@ export const AUDIT_ACTION = {
   PASSWORD_CHANGED: 'auth.user.password-changed',
 } as const;
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];
+
+/** P2 补：审计动作中文标签（审计日志页展示）。 */
+export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
+  [AUDIT_ACTION.PROJECT_BLOCK]: '屏蔽作品',
+  [AUDIT_ACTION.PROJECT_UNBLOCK]: '解除屏蔽',
+  [AUDIT_ACTION.PROJECT_PURGE]: '永久删除作品',
+  [AUDIT_ACTION.PROJECT_RENEW]: '续期作品',
+  [AUDIT_ACTION.PROJECT_VISIBILITY]: '修改可见性',
+  [AUDIT_ACTION.PROJECT_PIN]: '置顶作品',
+  [AUDIT_ACTION.PROJECT_UNPIN]: '取消置顶',
+  [AUDIT_ACTION.USER_BAN]: '封禁用户',
+  [AUDIT_ACTION.USER_UNBAN]: '解封用户',
+  [AUDIT_ACTION.CLEANUP_RUN]: '运行清理',
+  [AUDIT_ACTION.CAMPAIGN_CREATE]: '创建活动',
+  [AUDIT_ACTION.CAMPAIGN_UPDATE]: '更新活动',
+  [AUDIT_ACTION.CAMPAIGN_REMOVE_PROJECT]: '移除活动作品',
+  [AUDIT_ACTION.VOTES_INVALIDATE]: '批量作废票',
+  [AUDIT_ACTION.PASSWORD_CHANGED]: '修改密码',
+};
 
 /** 上传模式（与 SOURCE_TYPE 一一对应，供上传会话使用）。 */
 export const UPLOAD_MODE = {
@@ -315,6 +348,8 @@ export const RISK_SUSPICIOUS_THRESHOLD = 30;
 export const RISK_HIGH_THRESHOLD = 60;
 /** 规则求和封顶。 */
 export const RISK_MAX_SCORE = 100;
+/** P2 补：用户风险分 ≥ 该值 → 自动封禁（riskLevel 联动，vote 实时触发）。 */
+export const RISK_BAN_THRESHOLD = 100;
 /** 同 IP 高频窗口（1 分钟）。 */
 export const RISK_IP_HIGH_FREQ_WINDOW_MS = 60_000;
 /** 窗口内票数 ≥ 5 触发。 */

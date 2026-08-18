@@ -45,6 +45,8 @@ model User {
   role      String   @default("USER")
   /// ACTIVE | BANNED
   status    String   @default("ACTIVE")
+  /// P2 补（2026-08-18）：风控风险分累计（0-100+，达到封禁阈值自动联动封禁）
+  riskLevel Int      @default(0)
   createdAt DateTime @default(now())
 
   projects  Project[]
@@ -210,6 +212,10 @@ model Campaign {
   allowSelfVote   Boolean  @default(true)
   /// 评委加权（本轮恒 1，字段落库供后续）
   voteWeight      Int      @default(1)
+  /// P1 补（2026-08-18）：结果可见性——ended 后是否公开展示票数/排名（默认公开）
+  resultVisible   Boolean  @default(true)
+  /// P1 补（2026-08-18）：活动类型 ONLINE | OFFLINE（ONLINE 默认）
+  activityType    String   @default("ONLINE")
   authorId        String
   author          User     @relation(fields: [authorId], references: [id])
 

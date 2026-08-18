@@ -51,6 +51,14 @@ export default async function AdminCampaignEditPage({ params }: PageProps): Prom
             {detail.storedStatus !== detail.status ? `（存储态 ${detail.storedStatus}，由时间窗懒计算推进）` : ''}
           </p>
         </div>
+        <a
+          className="btn btn-secondary"
+          href={`/api/admin/campaigns/${detail.id}/export`}
+          download
+          title="导出活动成绩（CSV，Excel 可直接打开）"
+        >
+          导出成绩
+        </a>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 20, alignItems: 'start' }}>

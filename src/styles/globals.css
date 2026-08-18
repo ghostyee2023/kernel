@@ -390,6 +390,14 @@
   .badge--unlisted { background: var(--color-info-soft); color: var(--color-info); }
   .badge--archived { background: var(--color-danger-soft); color: var(--color-danger); }
 
+  /* P1 补：活动结果未公开提示 */
+  .camp-result-hidden {
+    margin: 14px 0 0; padding: 12px 16px; border-radius: var(--radius-card);
+    background: var(--surface-sunken); border: 1px dashed var(--border-strong);
+    color: var(--text-secondary); font-size: 13.5px;
+  }
+  .camp-stat--muted .camp-stat__num { color: var(--text-disabled); }
+
   .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
   .dot-live { position: relative; }
   .dot-live::after {

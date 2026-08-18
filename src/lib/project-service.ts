@@ -101,7 +101,7 @@ interface ProjectRow {
  *
  * 时间一律 ISO 8601 UTC 字符串，避免 Server / Client 序列化差异。
  */
-export function toDTO(row: ProjectRow): ProjectDTO {
+export function toDTO(row: ProjectRow, favoriteCount = 0): ProjectDTO {
   return {
     id: row.id,
     slug: row.slug,
@@ -126,6 +126,7 @@ export function toDTO(row: ProjectRow): ProjectDTO {
     authorName: row.authorAlias ?? row.author?.nickname ?? '匿名创作者',
     viewCount: row.stats?.viewCount ?? 0,
     voteCount: row.stats?.voteCount ?? 0,
+    favoriteCount,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     sandboxUrl: buildSandboxUrl(row.slug),
@@ -462,8 +463,17 @@ async function listImpl(query: ProjectListQuery = {}): Promise<PagedResult<Proje
     }),
   ]);
 
+  // P3 补：收藏数（Favorite 表按项目聚合，当前页一次取齐）
+  const projectRows = rows as unknown as ProjectRow[];
+  const favoriteGroups = await prisma.favorite.groupBy({
+    by: ['projectId'],
+    where: { projectId: { in: projectRows.map((r) => r.id) } },
+    _count: { projectId: true },
+  });
+  const favoriteMap = new Map(favoriteGroups.map((g) => [g.projectId, g._count.projectId]));
+
   return {
-    items: (rows as unknown as ProjectRow[]).map(toDTO),
+    items: projectRows.map((row) => toDTO(row, favoriteMap.get(row.id) ?? 0)),
     page,
     pageSize,
     total,
@@ -620,7 +630,8 @@ export async function getBySlug(slug: string, options: GetOptions = {}): Promise
     });
   }
 
-  return toDTO(row);
+  const favoriteCount = await prisma.favorite.count({ where: { projectId: row.id } });
+  return toDTO(row, favoriteCount);
 }
 
 /** 状态页专用：任何状态都能拿到，取不到返回 null（不抛错）。 */

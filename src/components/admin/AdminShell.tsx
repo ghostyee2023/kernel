@@ -96,6 +96,7 @@ const CONTENT_GROUP: readonly AdminNavItem[] = [
 const GOVERN_GROUP: readonly AdminNavItem[] = [
   { href: '/admin/users', label: '用户管理', icon: ICON_USERS },
   { href: '/admin/risk', label: '风控中心', icon: ICON_RISK },
+  { href: '/admin/audit', label: '审计日志', icon: ICON_CLEANUP },
 ];
 
 /** 「系统」组。 */

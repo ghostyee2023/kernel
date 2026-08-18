@@ -15,8 +15,17 @@
  *      （全站赞）；`@@unique([projectId, userId])` 不改 —— 活动票与全站赞互斥。
  */
 
-import { PROJECT_STATUS, RISK_IP_HIGH_FREQ_WINDOW_MS, VISIBILITY } from './constants';
+import {
+  AUDIT_ACTION,
+  PROJECT_STATUS,
+  RISK_BAN_THRESHOLD,
+  RISK_IP_HIGH_FREQ_WINDOW_MS,
+  RISK_SUSPICIOUS_THRESHOLD,
+  USER_STATUS,
+  VISIBILITY,
+} from './constants';
 import { computeStatus } from './campaign-service';
+import { writeAudit } from './audit';
 import { MS_PER_DAY } from './format';
 import { prisma } from './prisma';
 import { AppError, ERROR_CODE } from './response';
@@ -144,6 +153,35 @@ async function evaluateVoteRisk(
     sameDeviceAll: [...sameDeviceAll, current],
   });
   return verdict.score;
+}
+
+/** P2 补：投票后同步用户风险等级；达封禁阈值自动封禁（风险联动，失败不阻断投票）。 */
+async function syncUserRisk(userId: string, riskScore: number): Promise<void> {
+  if (!riskScore || riskScore < RISK_SUSPICIOUS_THRESHOLD) return; // 低风险不升级
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, riskLevel: true, status: true },
+    });
+    if (!user) return;
+    const level = Math.max(user.riskLevel, riskScore);
+    if (level > user.riskLevel) {
+      await prisma.user.update({ where: { id: userId }, data: { riskLevel: level } });
+    }
+    if (level >= RISK_BAN_THRESHOLD && user.status !== USER_STATUS.BANNED) {
+      await prisma.user.update({ where: { id: userId }, data: { status: USER_STATUS.BANNED } });
+      await writeAudit({
+        actorId: userId,
+        action: AUDIT_ACTION.USER_BAN,
+        targetType: 'user',
+        targetId: userId,
+        detail: '风控自动封禁（风险分达阈值）',
+        meta: { reason: 'auto_ban', riskLevel: level, source: 'vote' },
+      });
+    }
+  } catch (error) {
+    console.warn('[vote][risk-sync] failed', error);
+  }
 }
 
 /**
@@ -278,6 +316,7 @@ export async function vote(projectId: string, userId: string, options?: VoteOpti
       throw error;
     }
     console.log(`[vote][create] projectId=${project.id} userId=${userId} campaignId=${campaignId} riskScore=${riskScore}`);
+    await syncUserRisk(userId, riskScore);
     return {
       voted: true,
       voteCount: await currentVoteCount(project.id),
@@ -304,6 +343,8 @@ export async function vote(projectId: string, userId: string, options?: VoteOpti
     }
     throw error;
   }
+
+  await syncUserRisk(userId, riskScore);
 
   console.log(`[vote][create] projectId=${project.id} userId=${userId} riskScore=${riskScore}`);
   return { voted: true, voteCount: await currentVoteCount(project.id) };

@@ -1,11 +1,13 @@
 'use client';
 
 /**
- * 账户设置页（P3.5）—— client 组件。
+ * 账户设置页（P3.5 + P3 补）—— client 组件。
  *
  * 设计真源：docs/P3-我的后台设计.md §1.6；视觉基准：prototype #view-dashboard（1758-1780 行）。
+ * - 个人资料：昵称 / 头像 URL 修改（PATCH /api/auth/profile）；
  * - 账号信息：用户名 / 角色徽章（brand-gradient）/ 注册时间；
- * - 修改密码表单（admin 隐藏 + 说明）：前端校验 新密码 ≥6 且两次一致 → POST /api/auth/password →
+ * - 修改密码表单（2026-08-18 起 admin 也走 DB hash 校验，可改密码）：
+ *   前端校验 新密码 ≥6 且两次一致 → POST /api/auth/password →
  *   成功 toast「密码已更新」+ router.refresh()（会话保持，Q3 不强制重新登录）；错误按 code 展示；
  * - 退出登录：POST /api/auth/logout + router.push('/')。
  */
@@ -30,19 +32,55 @@ interface PasswordResult {
   changed: boolean;
 }
 
+/** 个人资料响应 data。 */
+interface ProfileResult {
+  nickname: string;
+  avatarUrl: string | null;
+}
+
 /** 渲染账户设置页。 */
 export function SettingsPanel({ user }: SettingsPanelProps): React.JSX.Element {
   const router = useRouter();
   const { toast } = useToast();
 
+  // —— 个人资料 ——
+  const [nickname, setNickname] = React.useState<string>(user?.nickname ?? '');
+  const [avatarUrl, setAvatarUrl] = React.useState<string>(user?.avatarUrl ?? '');
+  const [profileBusy, setProfileBusy] = React.useState<boolean>(false);
+  const [profileError, setProfileError] = React.useState<string>('');
+
+  // —— 修改密码 ——
   const [currentPassword, setCurrentPassword] = React.useState<string>('');
   const [newPassword, setNewPassword] = React.useState<string>('');
   const [confirmPassword, setConfirmPassword] = React.useState<string>('');
   const [error, setError] = React.useState<string>('');
   const [busy, setBusy] = React.useState<boolean>(false);
 
-  // ⚠️ 内联角色判断，禁止 import lib/auth.ts（node:crypto 会进客户端 bundle）。
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  /** 保存个人资料（昵称 / 头像）。 */
+  const submitProfile = async (event: React.FormEvent): Promise<void> => {
+    event.preventDefault();
+    if (profileBusy) return;
+    setProfileError('');
+    setProfileBusy(true);
+    try {
+      const response = await fetch('/api/auth/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nickname, avatarUrl }),
+      });
+      const body = (await response.json()) as ApiEnvelope<ProfileResult>;
+      if (!body.ok) {
+        setProfileError(body.error.message);
+        return;
+      }
+      toast('资料已更新', 'success');
+      router.refresh();
+    } catch {
+      setProfileError('网络异常，请稍后重试');
+    } finally {
+      setProfileBusy(false);
+    }
+  };
 
   /** 前端校验（新密码 ≥6 / 两次一致）→ 调接口 → code 分支提示。 */
   const submitPassword = async (event: React.FormEvent): Promise<void> => {
@@ -108,8 +146,45 @@ export function SettingsPanel({ user }: SettingsPanelProps): React.JSX.Element {
         </p>
       </div>
 
-      {/* 账号信息 */}
+      {/* 个人资料（P3 补：昵称 / 头像） */}
       <div className="panel settings-panel">
+        <div className="panel__head">
+          <h3>个人资料</h3>
+        </div>
+        <div className="panel__body">
+          <form onSubmit={(event) => void submitProfile(event)} noValidate>
+            <Field label="昵称" htmlFor="pf-nick" hint={`1-30 个字符，展示在作品卡片与评论处`}>
+              <Input
+                id="pf-nick"
+                maxLength={30}
+                placeholder="你的昵称"
+                value={nickname}
+                onChange={(event) => setNickname(event.target.value)}
+              />
+            </Field>
+            <Field label="头像 URL" htmlFor="pf-avatar" hint="可留空（显示首字母占位）；支持 http/https 图片地址">
+              <Input
+                id="pf-avatar"
+                maxLength={500}
+                placeholder="https://…/avatar.png"
+                value={avatarUrl}
+                onChange={(event) => setAvatarUrl(event.target.value)}
+              />
+            </Field>
+            {profileError ? (
+              <p className="auth-err show" role="alert" style={{ margin: '0 0 12px' }}>
+                {profileError}
+              </p>
+            ) : null}
+            <Button type="submit" variant="secondary" disabled={profileBusy}>
+              {profileBusy ? '保存中…' : '保存资料'}
+            </Button>
+          </form>
+        </div>
+      </div>
+
+      {/* 账号信息 */}
+      <div className="panel settings-panel" style={{ marginTop: 18 }}>
         <div className="panel__head">
           <h3>账号信息</h3>
         </div>
@@ -137,57 +212,51 @@ export function SettingsPanel({ user }: SettingsPanelProps): React.JSX.Element {
           <h3>修改密码</h3>
         </div>
         <div className="panel__body">
-          {isAdmin ? (
-            <p className="t-body-sm muted" style={{ margin: 0 }}>
-              演示管理员账号密码固定为 <code>admin</code> / <code>123456</code>，不支持修改。
-            </p>
-          ) : (
-            <form onSubmit={(event) => void submitPassword(event)} noValidate>
-              <Field label="当前密码" htmlFor="pwOld" hint={user?.hasPassword ? undefined : '尚未设置密码，可留空'}>
-                <Input
-                  id="pwOld"
-                  type="password"
-                  autoComplete="current-password"
-                  placeholder="输入当前密码"
-                  className="auth-input"
-                  value={currentPassword}
-                  onChange={(event) => setCurrentPassword(event.target.value)}
-                />
-              </Field>
-              <Field label="新密码" htmlFor="pwNew" hint={`至少 ${MIN_PASSWORD_LEN} 位`}>
-                <Input
-                  id="pwNew"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder={`至少 ${MIN_PASSWORD_LEN} 位`}
-                  className="auth-input"
-                  value={newPassword}
-                  onChange={(event) => setNewPassword(event.target.value)}
-                />
-              </Field>
-              <Field label="确认新密码" htmlFor="pwNew2">
-                <Input
-                  id="pwNew2"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="再次输入"
-                  className="auth-input"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                />
-              </Field>
+          <form onSubmit={(event) => void submitPassword(event)} noValidate>
+            <Field label="当前密码" htmlFor="pwOld" hint={user?.hasPassword ? '需输入当前密码' : '尚未设置密码，可留空'}>
+              <Input
+                id="pwOld"
+                type="password"
+                autoComplete="current-password"
+                placeholder="输入当前密码"
+                className="auth-input"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+              />
+            </Field>
+            <Field label="新密码" htmlFor="pwNew" hint={`至少 ${MIN_PASSWORD_LEN} 位`}>
+              <Input
+                id="pwNew"
+                type="password"
+                autoComplete="new-password"
+                placeholder={`至少 ${MIN_PASSWORD_LEN} 位`}
+                className="auth-input"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+              />
+            </Field>
+            <Field label="确认新密码" htmlFor="pwNew2">
+              <Input
+                id="pwNew2"
+                type="password"
+                autoComplete="new-password"
+                placeholder="再次输入"
+                className="auth-input"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+              />
+            </Field>
 
-              {error ? (
-                <p className="auth-err show" role="alert" style={{ margin: '0 0 12px' }}>
-                  {error}
-                </p>
-              ) : null}
+            {error ? (
+              <p className="auth-err show" role="alert" style={{ margin: '0 0 12px' }}>
+                {error}
+              </p>
+            ) : null}
 
-              <Button type="submit" disabled={busy}>
-                {busy ? '保存中…' : '保存修改'}
-              </Button>
-            </form>
-          )}
+            <Button type="submit" disabled={busy}>
+              {busy ? '保存中…' : '保存修改'}
+            </Button>
+          </form>
         </div>
       </div>
 

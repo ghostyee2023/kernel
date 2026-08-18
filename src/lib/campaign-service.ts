@@ -27,6 +27,7 @@ import {
   CAMPAIGN_SLUG_PREFIX,
   CAMPAIGN_SLUG_RANDOM_LEN,
   CAMPAIGN_STATUS,
+  ACTIVITY_TYPE,
   DEFAULT_ALLOW_SELF_VOTE,
   DEFAULT_MAX_VOTES_PER_USER,
   DEFAULT_PAGE_SIZE,
@@ -79,6 +80,8 @@ export interface CampaignRow {
   maxVotesPerUser: number;
   allowSelfVote: boolean;
   voteWeight: number;
+  resultVisible: boolean;
+  activityType: string;
   authorId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -149,6 +152,8 @@ function toDTO(row: CampaignRow, effective?: CampaignStatus): CampaignDTO {
     maxVotesPerUser: row.maxVotesPerUser,
     allowSelfVote: row.allowSelfVote,
     voteWeight: row.voteWeight,
+    resultVisible: row.resultVisible,
+    activityType: row.activityType,
     authorId: row.authorId,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -268,6 +273,15 @@ function normalizeVoteWeight(value: unknown): number {
   return num;
 }
 
+/** 校验活动类型：ONLINE | OFFLINE。 */
+function normalizeActivityType(value: unknown): string {
+  const type = typeof value === 'string' ? value : '';
+  if (type !== ACTIVITY_TYPE.ONLINE && type !== ACTIVITY_TYPE.OFFLINE) {
+    throw new AppError(ERROR_CODE.VALIDATION_FAILED, '活动类型必须是线上或线下');
+  }
+  return type;
+}
+
 /** 校验活动状态取值。 */
 function normalizeStatus(value: unknown): CampaignStatus {
   const list: readonly string[] = [
@@ -330,6 +344,8 @@ async function buildUpdateData(
   maxVotesPerUser: number;
   allowSelfVote: boolean;
   voteWeight: number;
+  resultVisible: boolean;
+  activityType: string;
   status: CampaignStatus;
 }> {
   const title = input.title !== undefined ? normalizeTitle(input.title) : current?.title;
@@ -349,6 +365,8 @@ async function buildUpdateData(
     input.allowSelfVote !== undefined ? Boolean(input.allowSelfVote) : (current?.allowSelfVote ?? DEFAULT_ALLOW_SELF_VOTE);
   const voteWeight =
     input.voteWeight !== undefined ? normalizeVoteWeight(input.voteWeight) : (current?.voteWeight ?? DEFAULT_VOTE_WEIGHT);
+  const resultVisible = input.resultVisible !== undefined ? Boolean(input.resultVisible) : (current?.resultVisible ?? true);
+  const activityType = input.activityType !== undefined ? normalizeActivityType(input.activityType) : (current?.activityType ?? ACTIVITY_TYPE.ONLINE);
   const status =
     input.status !== undefined
       ? normalizeStatus(input.status)
@@ -365,7 +383,7 @@ async function buildUpdateData(
     throw new AppError(ERROR_CODE.VALIDATION_FAILED, '投票结束时间必须晚于征集截止时间');
   }
 
-  return { title, description, coverUrl, collectEndAt, voteStartAt, voteEndAt, maxVotesPerUser, allowSelfVote, voteWeight, status };
+  return { title, description, coverUrl, collectEndAt, voteStartAt, voteEndAt, maxVotesPerUser, allowSelfVote, voteWeight, resultVisible, activityType, status };
 }
 
 /* ============================================================================

@@ -200,6 +200,7 @@ export function UsersTable({
               <Th>昵称</Th>
               <Th>角色</Th>
               <Th>状态</Th>
+              <Th className="admin-table__num">风险分</Th>
               <Th className="admin-table__num">作品数</Th>
               <Th>注册时间</Th>
               <Th className="admin-table__actions">操作</Th>
@@ -208,7 +209,7 @@ export function UsersTable({
           <TBody>
             {rows.length === 0 ? (
               <Tr>
-                <Td colSpan={7} className="admin-table__empty">
+                <Td colSpan={8} className="admin-table__empty">
                   {loading ? '加载中…' : '没有符合条件的用户'}
                 </Td>
               </Tr>
@@ -231,6 +232,15 @@ export function UsersTable({
                     </Td>
                     <Td>
                       <Badge tone={banned ? 'blocked' : 'live'}>{banned ? '已封禁' : '正常'}</Badge>
+                    </Td>
+                    <Td className="admin-table__num">
+                      {row.riskLevel >= 60 ? (
+                        <Badge tone="expiring">{row.riskLevel}</Badge>
+                      ) : row.riskLevel > 0 ? (
+                        <Badge tone="unlisted">{row.riskLevel}</Badge>
+                      ) : (
+                        <span className="muted mono">0</span>
+                      )}
                     </Td>
                     <Td className="admin-table__num">
                       <span className="mono">{formatCount(row.projectCount)}</span>

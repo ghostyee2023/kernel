@@ -48,6 +48,8 @@ export interface ProjectDTO {
   authorName: string;
   viewCount: number;
   voteCount: number;
+  /** P3 补：收藏数（Favorite 表实时 count；列表/详情按需填充）。 */
+  favoriteCount: number;
   /** ISO 8601 UTC */
   createdAt: string;
   /** ISO 8601 UTC */
@@ -309,6 +311,10 @@ export interface CampaignDTO {
   maxVotesPerUser: number;
   allowSelfVote: boolean;
   voteWeight: number;
+  /** P1 补：ended 后结果是否公开（false = 票数/排名对外隐藏）。 */
+  resultVisible: boolean;
+  /** P1 补：活动类型 ONLINE | OFFLINE。 */
+  activityType: string;
   authorId: string;
   /** ISO 8601 UTC */
   createdAt: string;
@@ -387,6 +393,8 @@ export interface CampaignInput {
   maxVotesPerUser?: number;
   allowSelfVote?: boolean;
   voteWeight?: number;
+  resultVisible?: boolean;
+  activityType?: string;
   status?: CampaignStatus;
 }
 
@@ -423,6 +431,8 @@ export interface AdminUserDTO {
   nickname: string;
   role: string;
   status: string;
+  /** P2 补：风控风险分（0-100+，≥60 高危，≥100 已自动封禁）。 */
+  riskLevel: number;
   /** 该作者名下作品数（project.groupBy 一次取齐）。 */
   projectCount: number;
   /** ISO 8601 UTC */
@@ -440,6 +450,31 @@ export interface CleanupLogDTO {
   message: string | null;
   /** JSON.parse 后的补充信息；无 / 解析失败时为 null / 原始串。 */
   detail: unknown;
+  /** ISO 8601 UTC */
+  createdAt: string;
+}
+
+/** P2 补：审计日志查询入参。 */
+export interface AdminAuditQuery {
+  page?: number;
+  pageSize?: number;
+  /** 按动作过滤（如 admin.user.ban）。 */
+  action?: string;
+  /** 按操作者用户名模糊过滤。 */
+  username?: string;
+}
+
+/** P2 补：审计日志 DTO。 */
+export interface AuditLogDTO {
+  id: string;
+  actorName: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  detail: string | null;
+  /** JSON.parse 后的结构化快照；无 / 解析失败时为 null / 原始串。 */
+  meta: unknown;
+  ip: string | null;
   /** ISO 8601 UTC */
   createdAt: string;
 }
@@ -702,6 +737,8 @@ export interface ReceivedVoteDTO {
 export interface AccountInfo {
   username: string;
   nickname: string;
+  /** P3 补：头像 URL（可空，空则首字母占位）。 */
+  avatarUrl: string | null;
   role: string;
   /** ISO 8601 UTC */
   createdAt: string;

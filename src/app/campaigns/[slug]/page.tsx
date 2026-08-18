@@ -97,6 +97,9 @@ export default async function CampaignDetailPage({ params }: PageProps): Promise
     detail.collectEndAt !== null &&
     new Date(detail.collectEndAt).getTime() > now;
 
+  // P1 补：结果不可见（ended + resultVisible=false）→ 票数/排名对外隐藏
+  const resultHidden = detail.status === CAMPAIGN_STATUS.ENDED && !detail.resultVisible;
+
   const remainingQuota = quotaInfo?.remaining ?? detail.maxVotesPerUser;
 
   // P3 移动端吸底投票条：仅单作品活动（投票目标无歧义；多作品时各作品已有独立投票按钮）
@@ -117,6 +120,9 @@ export default async function CampaignDetailPage({ params }: PageProps): Promise
         <div>
           <div className="camp-detail__meta">
             <Badge tone={campaignStatusTone(detail.status)}>{campaignStatusLabel(detail.status)}</Badge>
+            <Badge tone={detail.activityType === 'OFFLINE' ? 'expiring' : 'campaign'}>
+              {detail.activityType === 'OFFLINE' ? '线下活动' : '线上活动'}
+            </Badge>
             <span className="mono">{detail.slug}</span>
           </div>
           <h1 className="camp-detail__title">{detail.title}</h1>
@@ -141,11 +147,24 @@ export default async function CampaignDetailPage({ params }: PageProps): Promise
               <div className="camp-stat__num">{formatCount(detail.projectCount)}</div>
               <div className="camp-stat__label">已报名作品</div>
             </div>
-            <div className="camp-stat">
-              <div className="camp-stat__num">{formatCount(detail.voteCount)}</div>
-              <div className="camp-stat__label">活动累计票</div>
-            </div>
+            {resultHidden ? (
+              <div className="camp-stat camp-stat--muted">
+                <div className="camp-stat__num">—</div>
+                <div className="camp-stat__label">结果未公开</div>
+              </div>
+            ) : (
+              <div className="camp-stat">
+                <div className="camp-stat__num">{formatCount(detail.voteCount)}</div>
+                <div className="camp-stat__label">活动累计票</div>
+              </div>
+            )}
           </div>
+
+          {resultHidden ? (
+            <p className="camp-result-hidden" role="status">
+              活动已结束，投票结果暂未公开，请等待主办方公布。
+            </p>
+          ) : null}
 
           {session && detail.status === CAMPAIGN_STATUS.VOTING ? (
             <div className="camp-quota-row">
@@ -186,19 +205,25 @@ export default async function CampaignDetailPage({ params }: PageProps): Promise
                       </div>
                     </Link>
                     <div className="camp-proj__votes">
-                      <div className="camp-proj__count">
-                        {formatCount(item.campaignVoteCount)} <small>活动票</small>
-                      </div>
-                      <CampaignVoteButton
-                        campaignSlug={slug}
-                        campaignId={detail.id}
-                        projectId={item.project.id}
-                        campaignVoteCount={item.campaignVoteCount}
-                        hasVoted={myVotedIds.includes(item.project.id)}
-                        isLoggedIn={session !== null}
-                        remainingQuota={remainingQuota}
-                        selfVoteForbidden={!detail.allowSelfVote && item.project.authorId === session?.userId}
-                      />
+                      {resultHidden ? (
+                        <div className="camp-proj__count muted">结果未公开</div>
+                      ) : (
+                        <>
+                          <div className="camp-proj__count">
+                            {formatCount(item.campaignVoteCount)} <small>活动票</small>
+                          </div>
+                          <CampaignVoteButton
+                            campaignSlug={slug}
+                            campaignId={detail.id}
+                            projectId={item.project.id}
+                            campaignVoteCount={item.campaignVoteCount}
+                            hasVoted={myVotedIds.includes(item.project.id)}
+                            isLoggedIn={session !== null}
+                            remainingQuota={remainingQuota}
+                            selfVoteForbidden={!detail.allowSelfVote && item.project.authorId === session?.userId}
+                          />
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}

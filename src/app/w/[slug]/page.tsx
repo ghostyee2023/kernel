@@ -191,6 +191,9 @@ export default async function ProjectDetailPage({ params }: PageProps) {
               loginNext={`/w/${slug}`}
               variant="inline"
             />
+            <span className="muted t-body-sm" title="收藏数">
+              {formatCount(project.favoriteCount)} 人收藏
+            </span>
           </div>
 
           <ShareCard

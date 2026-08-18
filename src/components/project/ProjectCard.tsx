@@ -85,6 +85,10 @@ export function ProjectCard({
             </span>
 
             <span className="card__stats">
+              <span title="收藏数" className="fav-count">
+                ★ {formatCount(project.favoriteCount)}
+              </span>
+              <span aria-hidden="true">·</span>
               <span title="浏览量">{formatCount(project.viewCount)}</span>
               <span aria-hidden="true">·</span>
               <span title="体积">{formatBytes(project.sizeBytes)}</span>

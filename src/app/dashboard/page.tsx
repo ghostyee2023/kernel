@@ -62,6 +62,7 @@ function normalizePage(pageValue: string, tabValue: string): DashboardPage {
   if (tabValue === 'published') return DASHBOARD_PAGE.MY_PROJECTS;
   if (tabValue === 'favorites') return DASHBOARD_PAGE.FAVORITES;
   if (tabValue === 'joined') return DASHBOARD_PAGE.OVERVIEW;
+  if (tabValue === 'myvotes') return DASHBOARD_PAGE.MY_VOTES;
   return DASHBOARD_PAGE.OVERVIEW;
 }
 
@@ -87,12 +88,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   } else if (page === DASHBOARD_PAGE.SETTINGS) {
     const userRow = await prisma.user.findUnique({
       where: { id: userId },
-      select: { username: true, nickname: true, role: true, createdAt: true, passwordHash: true },
+      select: { username: true, nickname: true, avatarUrl: true, role: true, createdAt: true, passwordHash: true },
     });
     const account: AccountInfo | null = userRow
       ? {
           username: userRow.username ?? '',
           nickname: userRow.nickname,
+          avatarUrl: userRow.avatarUrl,
           role: userRow.role,
           createdAt: userRow.createdAt.toISOString(),
           // 不透出 hash，仅转布尔供前端判断「是否已设密码」
