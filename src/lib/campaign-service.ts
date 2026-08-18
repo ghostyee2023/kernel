@@ -43,6 +43,7 @@ import {
   type CampaignStatus,
 } from './constants';
 import { prisma } from './prisma';
+import { cached, invalidateTag } from './data-cache';
 import { AppError, ERROR_CODE } from './response';
 import { buildDetailUrl } from './sandbox';
 import type {
@@ -403,6 +404,18 @@ function normalizePaging(query: CampaignListQuery): { page: number; pageSize: nu
  * - 后台（includeDraft=true）：包含 draft，分页默认 20/上限 100。
  */
 export async function list(query: CampaignListQuery = {}): Promise<PagedResult<CampaignCardDTO>> {
+  const listCacheKey = [
+    'campaigns-list',
+    {
+      status: query.status ?? '',
+      page: query.page ?? 1,
+      pageSize: query.pageSize ?? '',
+      includeDraft: query.includeDraft ?? false,
+    },
+  ];
+  return cached(() => listImpl(query), listCacheKey, { tags: ['campaigns'], revalidate: 60 });
+}
+async function listImpl(query: CampaignListQuery = {}): Promise<PagedResult<CampaignCardDTO>> {
   const { page, pageSize } = normalizePaging(query);
   const where: Prisma.CampaignWhereInput = {
     ...(query.includeDraft ? {} : { status: { not: CAMPAIGN_STATUS.DRAFT } }),
@@ -432,6 +445,9 @@ export async function list(query: CampaignListQuery = {}): Promise<PagedResult<C
  * collecting 活动作品量少且未开投，不参与广场筛选（§八 Q7）。
  */
 export async function listSelectable(): Promise<CampaignCardDTO[]> {
+  return cached(listSelectableImpl, ['campaigns-selectable'], { tags: ['campaigns'], revalidate: 300 });
+}
+async function listSelectableImpl(): Promise<CampaignCardDTO[]> {
   const rows = await prisma.campaign.findMany({
     where: { status: { in: [CAMPAIGN_STATUS.COLLECTING, CAMPAIGN_STATUS.VOTING, CAMPAIGN_STATUS.ENDED] } },
     include: CARD_COUNT,
@@ -452,6 +468,12 @@ export async function getById(id: string): Promise<CampaignDTO> {
 
 /** 按 slug 取活动详情（公开）；draft / 不存在统一 404，不泄漏存在性。 */
 export async function getBySlug(slug: string): Promise<CampaignDetailDTO> {
+  return cached(() => getBySlugImpl(slug), ['campaign', slug], {
+    tags: [`campaign:${slug}`, 'campaigns'],
+    revalidate: 60,
+  });
+}
+async function getBySlugImpl(slug: string): Promise<CampaignDetailDTO> {
   const row = await prisma.campaign.findUnique({ where: { slug }, include: CARD_COUNT });
   if (!row) throw new AppError(ERROR_CODE.CAMP_NOT_FOUND);
   const card = toCardDTO(row as unknown as CampaignCardRow);
@@ -532,7 +554,7 @@ export async function create(input: CampaignInput, actorId: string): Promise<Cam
     meta: { slug: row.slug, title: row.title, status: row.status },
   });
   console.log(`[campaign][create] slug=${row.slug} title=${row.title} status=${row.status}`);
-
+  await invalidateTag('campaigns');
   return toDTO(row);
 }
 
@@ -592,7 +614,8 @@ export async function patch(id: string, input: CampaignInput, actorId: string): 
     meta: { before, after },
   });
   console.log(`[campaign][update] id=${id} slug=${updated.slug} status=${updated.status}`);
-
+  await invalidateTag('campaigns');
+  await invalidateTag(`campaign:${row.slug}`);
   return toDTO(updated as unknown as CampaignRow);
 }
 
@@ -664,6 +687,8 @@ export async function join(slug: string, projectId: string, userId: string): Pro
     where: { campaignId: campaign.id, status: PROJECT_CAMPAIGN_STATUS.JOINED },
   });
   console.log(`[campaign][join] campaign=${campaign.slug} project=${project.id} user=${userId}`);
+  await invalidateTag(`campaign:${campaign.slug}`);
+  await invalidateTag('campaigns');
   return { joined: true, alreadyJoined: false, projectCount: count };
 }
 
@@ -714,7 +739,8 @@ export async function removeProject(
     meta: { campaignSlug: campaign.slug, campaignTitle: campaign.title, projectId, status: PROJECT_CAMPAIGN_STATUS.REMOVED },
   });
   console.log(`[campaign][remove-project] campaign=${campaign.slug} project=${projectId} actor=${actorId}`);
-
+  await invalidateTag(`campaign:${campaign.slug}`);
+  await invalidateTag('campaigns');
   return { removed: true };
 }
 
@@ -726,8 +752,18 @@ export async function removeProject(
  * 活动榜：活动内票数 desc、joinedAt asc（与活动详情页作品网格排序一致）。
  * 只统计 joined 作品；移除报名后的存量票仍计入（§八 Q8）。
  * draft 活动不对外（与「不存在」一致，404）。
+ *
+ * P2：走 Data Cache（tag `campaign:${slug}` + campaigns，revalidate 60s），
+ * 写入侧 join/removeProject/vote revalidateTag(`campaign:${slug}`) 精确失效。
  */
 export async function rank(campaignSlug: string, limit = 12): Promise<CampaignRankItemDTO[]> {
+  return cached(() => rankImpl(campaignSlug, limit), ['campaign-rank', campaignSlug, limit], {
+    tags: [`campaign:${campaignSlug}`, 'campaigns'],
+    revalidate: 60,
+  });
+}
+
+async function rankImpl(campaignSlug: string, limit = 12): Promise<CampaignRankItemDTO[]> {
   const campaign = await prisma.campaign.findUnique({
     where: { slug: campaignSlug },
     select: { id: true, status: true, collectEndAt: true, voteStartAt: true, voteEndAt: true },

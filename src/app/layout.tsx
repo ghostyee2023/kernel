@@ -3,6 +3,7 @@ import * as React from 'react';
 import { Nav, type SessionUser } from '@/components/ui/Nav';
 import { SiteFooter } from '@/components/ui/SiteFooter';
 import { ToastProvider } from '@/components/ui/Toast';
+import { TopLoader } from '@/components/ui/TopLoader';
 import { getSession } from '@/lib/auth';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
 import '@/styles/globals.css';
@@ -53,6 +54,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <ToastProvider>
+          <TopLoader />
           <Nav sessionUser={sessionUser} />
           <main id="main">{children}</main>
           <SiteFooter />

@@ -75,12 +75,21 @@ export default async function CampaignDetailPage({ params }: PageProps): Promise
     throw error;
   }
 
-  // 登录态 SSR 一次取全：我的可报名作品 / 我已报名作品 / 剩余票 / 我已投作品
+  // 登录态 SSR 一次取全：我的可报名作品 / 我已报名作品 / 剩余票 / 我已投作品。
+  // 四个 per-user 查询无依赖，用 Promise.all 并行，避免串行 await 把首屏 TTFB 拖长 4 倍。
   const session = await getSession();
-  const myProjects = session ? await campaignService.myProjects(session.userId, detail.id) : [];
-  const myJoinedIds = session ? await campaignService.myJoinedIds(session.userId, detail.id) : [];
-  const quotaInfo = session ? await campaignService.quota(slug, session.userId) : null;
-  const myVotedIds = session ? (await voteService.myVotes(session.userId)).map((vote) => vote.projectId) : [];
+  let myProjects: Awaited<ReturnType<typeof campaignService.myProjects>> = [];
+  let myJoinedIds: Awaited<ReturnType<typeof campaignService.myJoinedIds>> = [];
+  let quotaInfo: Awaited<ReturnType<typeof campaignService.quota>> | null = null;
+  let myVotedIds: string[] = [];
+  if (session) {
+    [myProjects, myJoinedIds, quotaInfo, myVotedIds] = await Promise.all([
+      campaignService.myProjects(session.userId, detail.id),
+      campaignService.myJoinedIds(session.userId, detail.id),
+      campaignService.quota(slug, session.userId),
+      voteService.myVotes(session.userId).then((votes) => votes.map((vote) => vote.projectId)),
+    ]);
+  }
 
   const now = Date.now();
   const canJoin =

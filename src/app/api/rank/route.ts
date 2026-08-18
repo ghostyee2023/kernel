@@ -16,14 +16,9 @@ import type { NextRequest } from 'next/server';
 import * as campaignService from '@/lib/campaign-service';
 import * as projectService from '@/lib/project-service';
 import { AppError, ERROR_CODE, ok, toErrorResponse } from '@/lib/response';
-import { createTtlCache } from '@/lib/cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-/** 排行榜缓存：30s TTL。global/campaign 两类分支返回类型不同，用 unknown 兜底。 */
-const RANK_CACHE_TTL_MS = 30_000;
-const rankCache = createTtlCache<unknown>({ ttlMs: RANK_CACHE_TTL_MS });
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,13 +32,14 @@ export async function GET(request: NextRequest) {
       if (slug === '') {
         throw new AppError(ERROR_CODE.VALIDATION_FAILED, 'scope=campaign 时必须提供 campaign 参数');
       }
-      const cacheKey = `campaign:${slug}:${limit}`;
-      const items = await rankCache.getOrCompute(cacheKey, () => campaignService.rank(slug, limit));
+      // P2：campaignService.rank 内部走 Data Cache（tag campaign:slug + revalidate）
+      const items = await campaignService.rank(slug, limit);
       return ok(items);
     }
 
-    const cacheKey = `global:${limit}`;
-    const items = await rankCache.getOrCompute(cacheKey, () => projectService.rank(limit));
+    // P2：projectService.rank 内部走 Data Cache（tag rank + revalidate 60s），
+    // 写入侧（vote/unvote/create 等）revalidateTag('rank') 精确失效
+    const items = await projectService.rank(limit);
     return ok(items);
   } catch (error) {
     return toErrorResponse(error, 'rank');

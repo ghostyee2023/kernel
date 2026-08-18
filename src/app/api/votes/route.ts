@@ -18,6 +18,7 @@ import type { NextRequest } from 'next/server';
 
 import { requireUser } from '@/lib/auth';
 import { AppError, ERROR_CODE, ok, toErrorResponse } from '@/lib/response';
+import { invalidateTag } from '@/lib/data-cache';
 import * as voteService from '@/lib/vote-service';
 import type { VoteOptions } from '@/lib/types';
 
@@ -66,6 +67,9 @@ export async function POST(request: NextRequest) {
     if (campaignId) options.campaignId = campaignId;
 
     const result = await voteService.vote(projectId, session.userId, options);
+    // P2：投票改变票数 → 失效榜单与活动票数缓存（projects 列表按 new 排序不受影响，容忍弱一致）
+    await invalidateTag('rank');
+    if (campaignId) await invalidateTag(`campaign:${campaignId}`);
     return ok(result);
   } catch (error) {
     return toErrorResponse(error, 'votes:create');

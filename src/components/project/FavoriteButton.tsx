@@ -16,10 +16,11 @@
  */
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useToast } from '@/components/ui';
 import { cn } from '@/lib/cn';
+import { getFavoriteIds, invalidateFavoriteCache } from '@/lib/favorite-client';
 import type { ApiEnvelope } from '@/lib/types';
 
 /** 组件属性。 */
@@ -34,6 +35,12 @@ export interface FavoriteButtonProps {
   /** inline = 详情页按钮；overlay = 卡片右上角星标。 */
   variant?: 'inline' | 'overlay';
   size?: 'sm' | 'md';
+  /**
+   * 是否由客户端挂载后批量解析收藏态（P1 流式）。
+   * true 时初始置空（壳先出），再据 GET /api/favorites 点亮；
+   * 由 SSR 显式传入 initialFavorited 的场景（详情页）保持服务端值，不覆盖。
+   */
+  resolveClient?: boolean;
 }
 
 /** 收藏接口返回。 */
@@ -86,12 +93,30 @@ export function FavoriteButton({
   loginNext,
   variant = 'inline',
   size = 'md',
+  resolveClient = false,
 }: FavoriteButtonProps) {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [favorited, setFavorited] = useState<boolean>(initialFavorited);
+  // 登录态且需客户端解析收藏态时，初始置空（壳先出），挂载后由 /api/favorites 批量点亮；
+  // 由 SSR 显式传入 initialFavorited 的场景（详情页）保持服务端值，不覆盖。
+  const [favorited, setFavorited] = useState<boolean>(resolveClient ? false : initialFavorited);
   const [busy, setBusy] = useState<boolean>(false);
+  const resolvedRef = useRef<boolean>(false);
+
+  // P1 流式：登录态下挂载一次批量拉取收藏集合（模块级缓存保证整页只发一次请求），
+  // 据此点亮对应星标；非登录 / 非客户端解析 / 已解析过 则跳过。
+  useEffect(() => {
+    if (!isLoggedIn || !resolveClient || resolvedRef.current) return;
+    resolvedRef.current = true;
+    let active = true;
+    void getFavoriteIds().then((ids) => {
+      if (active) setFavorited(ids.has(slug));
+    });
+    return () => {
+      active = false;
+    };
+  }, [isLoggedIn, resolveClient, slug]);
 
   const next = loginNext ?? `/w/${slug}`;
   const label = favorited ? '取消收藏' : '收藏';
@@ -118,6 +143,8 @@ export function FavoriteButton({
       }
       const data = await unwrap<FavoriteResponse>(response);
       setFavorited(data.favorited);
+      // 收藏集合已变化 → 失效客户端缓存，下一次挂载重新拉取（跨卡片一致性）
+      invalidateFavoriteCache();
       toast(data.favorited ? '已收藏' : '已取消收藏', data.favorited ? 'success' : 'default');
       // 跨组件通知（让 FavoritesPanel 取消时本地移除卡片）
       window.dispatchEvent(new CustomEvent<FavoriteChangedDetail>(FAVORITE_CHANGED_EVENT, { detail: { slug, favorited: data.favorited } }));

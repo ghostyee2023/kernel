@@ -19,6 +19,12 @@ export interface ProjectGridProps {
   favoritedIds?: Set<string> | null;
   /** P3 收藏：当前用户是否已登录（false 时点击跳登录）。 */
   isLoggedIn?: boolean;
+  /**
+   * P1 流式：显式开启收藏按钮渲染（即使未传 favoritedIds）。
+   * 登录用户由客户端挂载后批量解析星标（壳先出、星标后补）；
+   * 匿名访客渲染空星（点击跳登录），与 P3 原始行为一致。
+   */
+  showFavorites?: boolean;
   /** 空态标题。 */
   emptyTitle?: string;
   /** 空态描述。 */
@@ -32,6 +38,7 @@ export function ProjectGrid({
   projects,
   favoritedIds,
   isLoggedIn = false,
+  showFavorites = false,
   emptyTitle = '还没有作品',
   emptyDescription = '成为第一个在这里种下种子的人。',
   emptyAction,
@@ -48,6 +55,7 @@ export function ProjectGrid({
           project={project}
           favorited={favoritedIds ? favoritedIds.has(project.id) : undefined}
           isLoggedIn={isLoggedIn}
+          showFavorites={showFavorites}
           favoriteLoginNext={`/w/${project.slug}`}
         />
       ))}

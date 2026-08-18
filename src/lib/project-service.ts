@@ -33,6 +33,7 @@ import {
   type Visibility,
 } from './constants';
 import { Prisma } from '@prisma/client';
+import { cached, invalidateTag } from './data-cache';
 import { buildCoverSvg } from './cover';
 import { computeExpireAt, MS_PER_DAY } from './format';
 import { prisma } from './prisma';
@@ -301,6 +302,8 @@ export async function create(input: CreateProjectInput): Promise<CreateProjectRe
     });
 
     console.log(`[project][create] slug=${row.slug} source=EXTERNAL_URL ttl=${ttlDays}d`);
+    await invalidateTag('projects');
+    await invalidateTag('plaza-stats');
     return {
       slug,
       sandboxUrl: url.toString(),
@@ -380,6 +383,8 @@ export async function create(input: CreateProjectInput): Promise<CreateProjectRe
     `[project][create] slug=${slug} source=${session.mode} files=${validated.fileCount} ttl=${ttlDays}d`,
   );
 
+  await invalidateTag('projects');
+  await invalidateTag('plaza-stats');
   return {
     slug,
     sandboxUrl: buildSandboxUrl(slug),
@@ -410,6 +415,19 @@ function normalizePaging(query: ProjectListQuery): { page: number; pageSize: num
  *   - `hot` 尚无真实热度分，P1 未实现（UI 置灰），降级为按 createdAt 排序。
  */
 export async function list(query: ProjectListQuery = {}): Promise<PagedResult<ProjectDTO>> {
+  const listCacheKey = [
+    'projects-list',
+    {
+      q: query.q ?? '',
+      sort: query.sort ?? 'new',
+      campaign: query.campaign ?? '',
+      page: query.page ?? 1,
+      pageSize: query.pageSize ?? DEFAULT_PAGE_SIZE,
+    },
+  ];
+  return cached(() => listImpl(query), listCacheKey, { tags: ['projects'], revalidate: 60 });
+}
+async function listImpl(query: ProjectListQuery = {}): Promise<PagedResult<ProjectDTO>> {
   const { page, pageSize } = normalizePaging(query);
   const keyword = trimOrUndefined(query.q);
   const campaignSlug = trimOrUndefined(query.campaign);
@@ -468,6 +486,9 @@ export interface PlazaStats {
  * 只统计公开且在线的作品 —— 回收站里的东西不该出现在门面数字上。
  */
 export async function stats(): Promise<PlazaStats> {
+  return cached(statsImpl, ['plaza-stats'], { tags: ['plaza-stats'], revalidate: 30 });
+}
+async function statsImpl(): Promise<PlazaStats> {
   const where = { visibility: VISIBILITY.PUBLIC, status: PROJECT_STATUS.ACTIVE };
 
   // viewCount 在 ProjectStats 上（1:1 关联），因此拆成两次聚合，
@@ -543,6 +564,9 @@ export async function myStats(userId: string): Promise<MyProjectStats> {
  * @param limit 返回条数，默认 12（P1 单页足够；分页在 P2 补 `page` 参数）。
  */
 export async function rank(limit = 12): Promise<ProjectDTO[]> {
+  return cached(() => rankImpl(limit), ['rank', limit], { tags: ['rank'], revalidate: 60 });
+}
+async function rankImpl(limit = 12): Promise<ProjectDTO[]> {
   const take = Math.max(1, Math.min(MAX_PAGE_SIZE, Math.floor(Number(limit) || 12)));
   const rows = await prisma.project.findMany({
     where: {
@@ -664,6 +688,7 @@ export async function patch(slug: string, input: PatchProjectInput): Promise<Pro
 
   const updated = await prisma.project.update({ where: { slug }, data, include: PROJECT_INCLUDE });
   console.log(`[project][patch] slug=${slug} fields=${Object.keys(data).join(',')}`);
+  await invalidateTag('projects');
   return toDTO(updated as unknown as ProjectRow);
 }
 
@@ -696,6 +721,7 @@ export async function renew(slug: string, ttlDays: number): Promise<ProjectDTO> 
   });
 
   console.log(`[project][renew] slug=${slug} +${days}d expireAt=${nextExpireAt.toISOString()}`);
+  await invalidateTag('projects');
   return toDTO(updated as unknown as ProjectRow);
 }
 
@@ -720,6 +746,7 @@ export async function softDelete(slug: string): Promise<ProjectDTO> {
   });
 
   console.log(`[project][soft-delete] slug=${slug} purgeAt=${updated.purgeAt?.toISOString() ?? '-'}`);
+  await invalidateTag('projects');
   return toDTO(updated as unknown as ProjectRow);
 }
 

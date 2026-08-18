@@ -26,6 +26,11 @@ export interface ProjectCardProps {
   favorited?: boolean;
   /** P3 收藏：当前用户是否已登录（false 时点击跳登录）。 */
   isLoggedIn?: boolean;
+  /**
+   * P1 流式：显式开启收藏按钮渲染（即使未传 favorited）。
+   * 登录用户由客户端挂载后批量解析星标；匿名访客渲染空星（点击跳登录）。
+   */
+  showFavorites?: boolean;
   /** P3 收藏：登录回跳地址（缺省 /w/{slug}）。 */
   favoriteLoginNext?: string;
 }
@@ -35,9 +40,12 @@ export function ProjectCard({
   project,
   favorited,
   isLoggedIn = false,
+  showFavorites = false,
   favoriteLoginNext,
 }: ProjectCardProps) {
-  const showFavorite = favorited !== undefined;
+  // P1 流式：显式开启（showFavorites）或 SSR 传入收藏态（favorited）时才渲染星标；
+  // 登录态且无 SSR 收藏态 → 客户端挂载后批量解析（先出壳后补星标）。
+  const showFavorite = showFavorites || favorited !== undefined;
 
   return (
     <Card as="article" className="card--project">
@@ -55,6 +63,7 @@ export function ProjectCard({
           isLoggedIn={isLoggedIn}
           loginNext={favoriteLoginNext ?? `/w/${project.slug}`}
           variant="overlay"
+          resolveClient={isLoggedIn && favorited === undefined}
         />
       ) : null}
 

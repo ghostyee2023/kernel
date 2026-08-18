@@ -12,27 +12,19 @@ import type { NextRequest } from 'next/server';
 import * as campaignService from '@/lib/campaign-service';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import { ok, toErrorResponse } from '@/lib/response';
-import { createTtlCache } from '@/lib/cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** 活动列表缓存：30s TTL，按 status/page/pageSize 分 key。 */
-const CAMPAIGNS_CACHE_TTL_MS = 30_000;
-const campaignsCache = createTtlCache<Awaited<ReturnType<typeof campaignService.list>>>({
-  ttlMs: CAMPAIGNS_CACHE_TTL_MS,
-});
-
 export async function GET(request: NextRequest) {
   try {
+    // P2：campaignService.list 内部走 Data Cache（tag campaigns + revalidate 60s），
+    // 写入侧 create/patch/join/removeProject revalidateTag('campaigns') 失效
     const url = new URL(request.url);
     const status = url.searchParams.get('status') ?? undefined;
     const page = Number(url.searchParams.get('page') ?? 1);
     const pageSize = Number(url.searchParams.get('pageSize') ?? DEFAULT_PAGE_SIZE);
-    const cacheKey = `list:${status ?? 'all'}:${page}:${pageSize}`;
-    const result = await campaignsCache.getOrCompute(cacheKey, () =>
-      campaignService.list({ status, page, pageSize }),
-    );
+    const result = await campaignService.list({ status, page, pageSize });
     return ok(result.items, { page: result.page, pageSize: result.pageSize, total: result.total });
   } catch (error) {
     return toErrorResponse(error, 'campaigns:list');

@@ -12,17 +12,10 @@ import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import * as projectService from '@/lib/project-service';
 import { AppError, ERROR_CODE, ok, toErrorResponse } from '@/lib/response';
 import { ensureDataSkeleton } from '@/lib/storage';
-import { createTtlCache } from '@/lib/cache';
 import type { CreateProjectInput, ProjectListQuery } from '@/lib/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-/** 列表结果缓存：30s TTL，按完整查询参数分 key，避免多筛选/翻页串数据。 */
-const PROJECTS_CACHE_TTL_MS = 30_000;
-const projectsCache = createTtlCache<Awaited<ReturnType<typeof projectService.list>>>({
-  ttlMs: PROJECTS_CACHE_TTL_MS,
-});
 
 /** 从查询串解析列表参数。 */
 function parseQuery(url: URL): ProjectListQuery {
@@ -38,9 +31,10 @@ function parseQuery(url: URL): ProjectListQuery {
 
 export async function GET(request: NextRequest) {
   try {
+    // P2：projectService.list 内部走 Data Cache（tag projects + revalidate 60s，
+    // key 含 sort/q/page/pageSize），写入侧 create/patch/softDelete/renew revalidateTag 失效
     const query = parseQuery(new URL(request.url));
-    const cacheKey = `list:${query.sort}:${query.q ?? ''}:${query.page}:${query.pageSize}`;
-    const result = await projectsCache.getOrCompute(cacheKey, () => projectService.list(query));
+    const result = await projectService.list(query);
     return ok(result.items, {
       page: result.page,
       pageSize: result.pageSize,
@@ -66,7 +60,6 @@ export async function POST(request: NextRequest) {
 
     // authorId 一律取自会话，忽略请求体里的同名脏字段
     const result = await projectService.create({ ...body, authorId: session.userId });
-    projectsCache.invalidate();
     return ok(result, undefined, 201);
   } catch (error) {
     return toErrorResponse(error, 'projects:create');

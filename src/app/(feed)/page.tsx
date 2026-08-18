@@ -4,8 +4,11 @@
  * Server Component 直接查领域服务：首屏即完整 HTML，无客户端瀑布请求。
  * 搜索与翻页状态全部放在 URL 上，`<Suspense>` 只包住读 searchParams 的客户端筛选条。
  *
- * P0-A 性能优化：首页依赖 session + favorites，暂保留 force-dynamic。
- * 但把 stats() 结果做内存缓存（30 秒 TTL），减少每次请求的 DB 往返。
+ * 性能优化（P2 缓存 + P1 异步）：
+ *   - 公开只读查询（list / stats / selectable）走 Next Data Cache（unstable_cache），
+ *     跨实例共享、revalidateTag 精确失效，热态命中缓存 TTFB 显著下降。
+ *   - per-user 收藏集合不再在 SSR 阻塞：卡片星标改为客户端挂载后批量拉取
+ *     （GET /api/favorites，模块级缓存整页只发一次），实现「壳先出、星标后补」。
  */
 
 import type { Metadata } from 'next';
@@ -16,33 +19,11 @@ import { PlazaFilterBar, ProjectGrid } from '@/components/project';
 import { getSession } from '@/lib/auth';
 import * as campaignService from '@/lib/campaign-service';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
-import * as favoriteService from '@/lib/favorite-service';
 import { formatBytes, formatCount } from '@/lib/format';
 import * as projectService from '@/lib/project-service';
-import type { PlazaStats } from '@/lib/project-service';
 import type { ProjectListQuery } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
-
-/**
- * stats() 内存缓存（30 秒 TTL）。
- *
- * 首页每次请求都调 stats()，但统计数据（作品数/浏览量/体积）变化不频繁，
- * 缓存 30 秒可减少大量重复 DB 聚合查询。进程级缓存，各实例独立。
- */
-const STATS_CACHE_TTL_MS = 30_000;
-let statsCache: { value: PlazaStats; expireAt: number } | null = null;
-
-/** 带内存缓存的 stats()：TTL 内直接返回缓存值，过期后重新查询。 */
-async function getCachedStats(): Promise<PlazaStats> {
-  const now = Date.now();
-  if (statsCache !== null && statsCache.expireAt > now) {
-    return statsCache.value;
-  }
-  const value = await projectService.stats();
-  statsCache = { value, expireAt: now + STATS_CACHE_TTL_MS };
-  return value;
-}
 
 export const metadata: Metadata = {
   title: '作品广场',
@@ -95,15 +76,14 @@ export default async function PlazaPage({ searchParams }: PageProps) {
   if (sort !== 'new') listQuery.sort = sort;
   if (campaign !== '') listQuery.campaign = campaign;
 
-  // P3 收藏：登录用户 SSR 取已收藏 id 集合 → 广场卡片右上角渲染星标（访客空集也显示，点击跳登录）
+  // P1 流式：公开只读查询走 Data Cache（list/stats/selectable），SSR 不再阻塞 per-user 收藏查询；
+  // 卡片星标由客户端挂载后调 GET /api/favorites 批量点亮（壳先出、星标后补）。
   const session = await getSession();
-  const [result, summary, selectable, favoriteIds] = await Promise.all([
+  const [result, summary, selectable] = await Promise.all([
     projectService.list(listQuery),
-    getCachedStats(),
+    projectService.stats(),
     campaignService.listSelectable(),
-    session ? favoriteService.myFavoriteIds(session.userId) : Promise.resolve([] as string[]),
   ]);
-  const favoritedIds = new Set(favoriteIds);
 
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
 
@@ -167,8 +147,9 @@ export default async function PlazaPage({ searchParams }: PageProps) {
       <div className="container-wide" id="plaza">
         <ProjectGrid
           projects={result.items}
-          favoritedIds={favoritedIds}
+          favoritedIds={null}
           isLoggedIn={session !== null}
+          showFavorites
           emptyTitle={
             campaign !== ''
               ? '该活动还没有可展示的作品'
