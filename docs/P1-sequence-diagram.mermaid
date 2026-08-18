@@ -1,0 +1,91 @@
+sequenceDiagram
+    autonumber
+    actor U as 登录用户
+    participant CP as /campaigns/[slug] (RSC)
+    participant CS as CampaignService
+    participant JB as CampaignJoinBox (Client)
+    participant JA as POST /api/campaigns/:slug/join
+    participant VB as CampaignVoteButton (Client)
+    participant VA as POST /api/votes
+    participant VS as VoteService
+    participant DB as Prisma / SQLite
+
+    U->>CP: GET /campaigns/xxx
+    CP->>CS: getBySlug + myProjects + myJoinedIds + quota
+    CS->>DB: Campaign + ProjectCampaign(joined) + 活动内票数 COUNT + 我的作品
+    CS-->>CP: CampaignDetailDTO（含 projects/我的报名态/剩余票）
+    CP-->>U: 规则 + 时间线 + 作品网格 + 报名区
+
+    U->>JB: 选我的作品 → 报名
+    JB->>JA: POST {projectId}
+    JA->>JA: requireUser()
+    JA->>CS: join(slug, projectId, userId)
+    CS->>DB: 查 campaign → computeStatus
+    alt 非 collecting 或 now >= collectEndAt
+        CS-->>JA: CAMP_NOT_OPEN
+        JA-->>JB: 409 toast
+    else 非本人作品
+        CS-->>JA: FORBIDDEN
+    else 已报名 joined（幂等）
+        CS-->>JA: {joined:true, alreadyJoined:true}
+    else 被移除/拒绝后重报
+        CS-->>JA: CAMP_ALREADY_JOINED
+    else 新报名
+        CS->>DB: INSERT ProjectCampaign(status='joined')
+        CS-->>JA: {joined:true, alreadyJoined:false}
+    end
+    JA-->>JB: ok → router.refresh()
+
+    U->>VB: 给作品 A 投活动票
+    VB->>VA: POST {projectId, campaignId}
+    VA->>VA: requireUser()
+    VA->>VS: vote(projectId, userId, {campaignId})
+    VS->>DB: 校验链（campaign/报名/项目/自投/quota）
+    alt 活动不在投票期
+        VS-->>VA: CAMP_NOT_OPEN
+    else 作品未报名
+        VS-->>VA: CAMP_PROJECT_NOT_JOINED
+    else 自投被禁
+        VS-->>VA: SELF_VOTE_FORBIDDEN
+    else 超 quota
+        VS-->>VA: VOTE_QUOTA_EXCEEDED
+    else 通过（含已投幂等）
+        VS->>DB: tx: INSERT Vote(campaignId) + stats+1
+        VS-->>VA: {voted, voteCount, campaignVoteCount, remainingQuota}
+    end
+    VA-->>VB: ok / toast
+    VB->>VB: 本地更新 + router.refresh() 同步服务端
+
+sequenceDiagram
+    autonumber
+    actor A as 管理员
+    participant CF as CampaignForm (Client)
+    participant AC as POST /api/admin/campaigns
+    participant AU as PATCH /api/admin/campaigns/:id
+    participant AR as DELETE /api/admin/campaigns/:id/projects/:pid
+    participant CS as CampaignService
+    participant AD as AuditService(writeAudit)
+    participant DB as Prisma / SQLite
+
+    A->>CF: 填规则 → 保存
+    CF->>AC: POST {title, collectEndAt, voteStartAt, voteEndAt, maxVotesPerUser, allowSelfVote, voteWeight}
+    AC->>AC: requireAdmin()
+    AC->>CS: create(input, actorId)
+    CS->>DB: 生成 slug → INSERT Campaign(status='draft', authorId=actorId)
+    CS->>AD: writeAudit(admin.campaign.create, targetType:'campaign')
+    AC-->>CF: CampaignDTO → 跳转编辑页
+
+    A->>CF: 推进状态 / 改规则
+    CF->>AU: PATCH {status:'voting', voteEndAt:...}
+    AU->>AU: requireAdmin()
+    AU->>CS: patch(id, input, actorId)
+    CS->>DB: 时间顺序校验 → UPDATE Campaign
+    CS->>AD: writeAudit(admin.campaign.update, meta:{before,after})
+    AU-->>CF: CampaignDTO
+
+    A->>AR: 移除报名作品 P
+    AR->>AR: requireAdmin()
+    AR->>CS: removeProject(id, projectId, actorId)
+    CS->>DB: UPDATE ProjectCampaign SET status='removed'（幂等）
+    CS->>AD: writeAudit(admin.campaign.remove-project)
+    AR-->>CF: ok → router.refresh()

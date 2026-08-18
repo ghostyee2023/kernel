@@ -1,0 +1,54 @@
+{
+  "name": "kernel-creative-seed",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kernel · 创意种子 — 静态作品发布平台 P0 骨架（本地 Node.js 轻量桩）",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "db:push": "prisma db push",
+    "db:init": "node --env-file-if-exists=.env --import tsx scripts/db-init.ts",
+    "db:seed": "node --env-file-if-exists=.env --import tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "db:reset": "node --env-file-if-exists=.env --import tsx scripts/db-init.ts --force && npm run db:seed",
+    "db:push-remote": "node --env-file-if-exists=.env --import tsx scripts/db-push-remote.ts",
+    "setup": "npm run db:init && npm run db:seed",
+    "cleanup:once": "node --env-file-if-exists=.env --import tsx scripts/cleanup.ts",
+    "cleanup:cron": "node --env-file-if-exists=.env --import tsx scripts/cron.ts"
+  },
+  "prisma": {
+    "seed": "node --env-file-if-exists=.env --import tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "@prisma/adapter-libsql": "^6.19.3",
+    "@prisma/client": "^6.5.0",
+    "clsx": "^2.1.1",
+    "file-type": "^19.6.0",
+    "nanoid": "^5.0.9",
+    "next": "^15.5.4",
+    "node-cron": "^3.0.3",
+    "qrcode": "^1.5.4",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "yauzl": "^3.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "^22.10.2",
+    "@types/node-cron": "^3.0.11",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@types/yauzl": "^2.10.3",
+    "prisma": "^6.5.0",
+    "tailwindcss": "^4.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  }
+}

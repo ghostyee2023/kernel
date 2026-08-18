@@ -1,0 +1,193 @@
+%% Kernel · 创意种子 — P0 时序图
+%% 来源：docs/P0-架构与任务分解.md §4
+%% 含三张图：4.1 上传发布全链路 / 4.2 详情页与沙箱预览 / 4.3 生命周期定时任务
+%% 说明：mermaid 单文件只渲染第一张图，如需分别渲染请按分隔线拆分
+
+%% ============================================================
+%% 4.1 上传 → 校验 → 解压 → 落盘 → 生成 slug → 入库 → 返回链接
+%% ============================================================
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant P as new/page.tsx (Client)
+    participant AI as upload-init Route
+    participant AC as upload-chunk Route
+    participant AX as upload-complete Route
+    participant AP as POST /api/projects
+    participant SS as UploadSessionService
+    participant FV as FileValidator
+    participant ZI as ZipInspector
+    participant ST as StorageService
+    participant SL as SlugService
+    participant DB as Prisma / SQLite
+
+    U->>P: 拖入 demo.zip（选择 ZIP 模式）
+    P->>AI: POST {fileName, fileSize, mode:"ZIP"}
+    AI->>FV: checkSize(fileSize,"ZIP")
+    alt 超过 100MB
+        FV-->>AI: throw FILE_TOO_LARGE
+        AI-->>P: 413 {ok:false, error:FILE_TOO_LARGE}
+    else 通过
+        AI->>SS: init() 建 tmp/{uploadId}/ + session.json
+        SS->>ST: mkdir tmp/{uploadId}/chunks
+        AI-->>P: 200 {uploadId, chunkSize:5MB, totalChunks:N}
+    end
+
+    loop 每个分片 i = 0..N-1
+        P->>AC: PUT ?uploadId&index=i (binary)
+        AC->>SS: writeChunk() 写 chunks/{i}.part
+        AC-->>P: 200 {received:i+1, total:N}
+        P->>P: 更新 Dropzone 进度条
+    end
+
+    P->>AX: POST {uploadId}
+    AX->>SS: merge() 顺序拼接 → merged.bin
+    AX->>FV: detectMagic(merged.bin)
+    alt 魔数不是 zip / html
+        FV-->>AX: throw UNSUPPORTED_FILE_TYPE
+        AX->>SS: discard(uploadId)
+        AX-->>P: 400 {error:UNSUPPORTED_FILE_TYPE}
+    else 魔数校验通过
+        AX->>ZI: prescan(merged.bin)
+        Note over ZI: 读中央目录：条目数<=2000<br/>解压比<=100:1、单条目<=50MB<br/>解压总量<=200MB、路径穿越检测
+        alt 触发任一红线
+            ZI-->>AX: throw ZIP_BOMB_SUSPECTED / PATH_TRAVERSAL_DETECTED
+            AX->>SS: discard(uploadId)
+            AX-->>P: 400 {error:具体码}
+        else 预扫描通过
+            AX->>ZI: extractSafely(merged.bin, tmp/{uploadId}/extracted)
+            ZI->>FV: filterEntries() 扩展名白名单过滤
+            FV-->>ZI: {kept[], ignored[]}
+            ZI->>ST: 逐条流式写入 extracted/
+            ZI->>ZI: detectEntryFile()：根 index.html → dist/build/out/public → 唯一 .html → 无
+            ZI-->>AX: {fileCount, sizeBytes, fileTree, entryFileSuggested, ignored[]}
+            AX->>SS: 更新 session.json（标记 validated）
+            AX-->>P: 200 {fileCount, sizeBytes, entryFileSuggested, fileTree, ignoredFiles}
+        end
+    end
+
+    P->>U: 显示「安全校验通过」+ 被忽略文件列表 + 文件树
+    alt entryFileSuggested 为空
+        P->>U: 展开 FileTree 要求手动指定入口
+        U->>P: 点选 src/home.html
+    end
+    U->>P: 填写标题/简介/可见性/保留时长 → 点「发布作品」
+
+    P->>AP: POST {uploadId, title, visibility:"PUBLIC", ttlDays:90, entryFile}
+    AP->>SL: generateUnique()
+    loop 最多重试 3 次
+        SL->>SL: nanoid(BASE58, 8)
+        SL->>SL: isReserved(slug)?
+        SL->>DB: 唯一性预检
+    end
+    SL-->>AP: slug = "k7Rm2xQz"
+
+    AP->>DB: BEGIN TRANSACTION
+    AP->>DB: INSERT Project (slug, expireAt=now+90d, status='ACTIVE')
+    AP->>DB: INSERT ProjectStats (projectId)
+    AP->>DB: COMMIT
+    AP->>ST: commitToProject(uploadId, slug)
+    Note over ST: fs.rename(tmp/{id}/extracted → projects/k7Rm2xQz)<br/>【原子操作】
+    alt rename 失败
+        ST-->>AP: throw STORAGE_ERROR
+        AP->>DB: 回滚：DELETE Project + ProjectStats
+        AP-->>P: 500 {error:STORAGE_ERROR}
+    else rename 成功
+        AP->>ST: writeMeta() → projects/k7Rm2xQz/.kernel/meta.json
+        AP->>SS: discard(uploadId) 清理 tmp
+        AP-->>P: 200 {slug, sandboxUrl, detailUrl, expireAt, dirPath}
+    end
+
+    P->>U: 渲染 PublishSuccess：大号短链 + 复制按钮 + 二维码 + 短码/目录/有效期
+
+
+%% ============================================================
+%% 4.2 详情页加载 → iframe 沙箱预览
+%% ============================================================
+%% sequenceDiagram
+%%     autonumber
+%%     actor U as 用户
+%%     participant B as 浏览器
+%%     participant DP as w/[slug]/page.tsx (RSC)
+%%     participant PS as ProjectService
+%%     participant DB as Prisma / SQLite
+%%     participant SB as sandbox Route
+%%     participant SD as SandboxService
+%%     participant ST as StorageService
+%%     participant FS as .kernel-data 磁盘
+%%
+%%     U->>B: 访问 /w/k7Rm2xQz
+%%     B->>DP: GET (SSR)
+%%     DP->>PS: getBySlug("k7Rm2xQz")
+%%     PS->>DB: SELECT Project + ProjectStats WHERE slug
+%%     DB-->>PS: row
+%%     alt 不存在 或 visibility=PRIVATE
+%%         PS-->>DP: null
+%%         DP-->>B: 404 → w/[slug]/not-found.tsx
+%%     else status = ARCHIVED / PURGED
+%%         PS-->>DP: {status:'ARCHIVED', purgeAt}
+%%         DP-->>B: 302 → /_status/k7Rm2xQz（410 语义友好页）
+%%     else status = ACTIVE
+%%         PS->>DB: UPDATE ProjectStats SET viewCount = viewCount + 1
+%%         PS-->>DP: ProjectDTO
+%%         DP->>DP: generateMetadata() 写 title/description/OG
+%%         DP-->>B: HTML（面包屑 + 标题 + PreviewFrame + 说明 + 右侧面板）
+%%     end
+%%     Note over B: PreviewFrame 渲染 iframe src="/sandbox/k7Rm2xQz/"<br/>sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms"<br/>【不给 allow-same-origin】referrerpolicy="no-referrer"
+%%     B->>SB: GET /sandbox/k7Rm2xQz/
+%%     SB->>PS: getBySlug(slug) 轻查（status/visibility/entryFile）
+%%     alt PRIVATE 或 不存在
+%%         SB-->>B: 404（不泄露存在性）
+%%     else ARCHIVED / PURGED
+%%         SB-->>B: 410 + 指向 /_status/{slug}
+%%     else ACTIVE
+%%         SB->>SD: normalizeRequestPath([]) → entryFile
+%%         SB->>ST: resolveSafePath(slug, "index.html")
+%%         Note over ST: path.resolve 后必须 startsWith(projectDir)<br/>否则 throw PATH_TRAVERSAL_DETECTED
+%%         ST->>FS: createReadStream(...)
+%%         FS-->>ST: stream
+%%         SB->>SD: buildSecurityHeaders() + contentTypeOf + cacheControlOf
+%%         Note over SD: CSP: sandbox allow-scripts allow-popups<br/>allow-popups-to-escape-sandbox allow-forms;<br/>form-action 'none'; base-uri 'self'<br/>+ nosniff / no-referrer / Permissions-Policy<br/>+ 绝不 Set-Cookie
+%%         SB-->>B: 200 text/html + 安全头 + 文件流
+%%     end
+%%     loop iframe 内相对资源
+%%         B->>SB: GET /sandbox/k7Rm2xQz/assets/app.js
+%%         SB->>ST: resolveSafePath(slug, "assets/app.js")
+%%         alt 路径穿越 或 扩展名不在白名单
+%%             SB-->>B: 403
+%%         else 正常
+%%             SB-->>B: 200 + Cache-Control: public, max-age=2592000, immutable
+%%         end
+%%     end
+
+
+%% ============================================================
+%% 4.3 生命周期定时任务
+%% ============================================================
+%% sequenceDiagram
+%%     autonumber
+%%     participant CR as scripts/cron.ts
+%%     participant LS as LifecycleService
+%%     participant DB as Prisma / SQLite
+%%     participant ST as StorageService
+%%
+%%     Note over CR: node-cron 常驻（npm run cron）
+%%     CR->>LS: 03:00 archiveExpired(batchId)
+%%     LS->>DB: SELECT Project WHERE expireAt < now AND exemptExpire = 0 AND status='ACTIVE' LIMIT 200
+%%     loop 每条
+%%         LS->>DB: UPDATE status='ARCHIVED', archivedAt=now, purgeAt=now+30d
+%%         LS->>DB: INSERT CleanupLog {batchId, action:'archive'}
+%%     end
+%%     LS-->>CR: {scanned, archived, failed}
+%%     CR->>LS: 03:30 purgeArchived(batchId)
+%%     LS->>DB: SELECT Project WHERE purgeAt < now AND status='ARCHIVED' LIMIT 200
+%%     loop 每条
+%%         LS->>ST: dirSize(projects/{slug}) → freedBytes
+%%         LS->>ST: removeProjectDir(slug)
+%%         LS->>DB: UPDATE status='PURGED', fileCount=0, sizeBytes=0
+%%         LS->>DB: INSERT CleanupLog {action:'purge', freedBytes}
+%%     end
+%%     LS-->>CR: {scanned, purged, freedBytes}
+%%     CR->>LS: 每 30min gcTmp(batchId)
+%%     LS->>ST: 扫描 tmp/*，删除 mtime 超 2h 的目录
+%%     LS->>DB: INSERT CleanupLog {action:'tmp-gc', freedBytes}

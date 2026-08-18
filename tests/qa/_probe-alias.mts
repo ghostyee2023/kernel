@@ -1,0 +1,13 @@
+import { SESSION_COOKIE, createSessionToken, verifySessionToken, isAdminRole, canManageProject } from '@/lib/auth';
+import { ok, toErrorResponse, AppError, ERROR_CODE } from '@/lib/response';
+console.log('alias-resolve OK', SESSION_COOKIE);
+console.log('token valid:', verifySessionToken(createSessionToken({ id: 'u1', username: 'demo', role: 'USER' })) !== null);
+console.log('isAdminRole ADMIN:', isAdminRole('ADMIN'), 'USER:', isAdminRole('USER'));
+console.log('canManage owner:', canManageProject({ userId: 'u1', username: 'a', role: 'USER', exp: 1 }, { authorId: 'u1' }));
+console.log('canManage non-owner:', canManageProject({ userId: 'u2', username: 'a', role: 'USER', exp: 1 }, { authorId: 'u1' }));
+console.log('canManage admin:', canManageProject({ userId: 'u2', username: 'a', role: 'ADMIN', exp: 1 }, { authorId: 'u1' }));
+console.log('canManage anon:', canManageProject(null, { authorId: 'u1' }));
+const resp = ok({ hello: true });
+console.log('ok response status:', resp.status, JSON.stringify(await resp.json()));
+const err = toErrorResponse(new AppError(ERROR_CODE.NOT_LOGGED_IN), 'probe');
+console.log('err response status:', err.status, JSON.stringify(await err.json()));

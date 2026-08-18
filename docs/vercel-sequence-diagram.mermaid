@@ -1,0 +1,97 @@
+%% Kernel · P0 → Vercel 试验部署 · 时序图集合
+%% 1) 生产（Vercel）上传链路
+%% 2) 生产沙箱读取
+%% 3) Vercel Cron 触发
+
+%% ===== 4.1 生产（Vercel）上传链路：分片 → 单请求解压 → Blob staging → 发布 =====
+sequenceDiagram
+    autonumber
+    actor U as 用户（上传页浏览器）
+    participant UI as new/page.tsx (Client)
+    participant IN as upload-init Route
+    participant CH as upload-chunk Route
+    participant AX as upload-complete Route
+    participant AP as POST /api/projects
+    participant ST as Storage(blob 分支)
+    participant BL as BlobClient(REST)
+    participant TMP as /tmp 本地盘(Vercel)
+    participant DB as Prisma(adapter→Turso)
+
+    U->>UI: 拖入 demo.zip（选择 ZIP 模式）
+    UI->>IN: POST {fileName, fileSize, mode:"ZIP"}
+    IN->>ST: 校验大小 → initSession()：session.json 写 Blob tmp/{id}/session.json
+    IN-->>UI: 200 {uploadId, chunkSize:3MB(生产), totalChunks:N}
+
+    loop 每个分片 i = 0..N-1
+        UI->>CH: PUT ?uploadId&index=i（≤3MB，低于 Vercel 4.5MB 请求体上限）
+        CH->>ST: writeChunk() → Blob tmp/{id}/chunks/{i}.part
+        CH-->>UI: 200 {received, total}
+    end
+
+    U->>UI: 点「安全校验」
+    UI->>AX: POST {uploadId}
+    AX->>ST: mergeChunks()：下载全部 chunk → TMP /tmp/{id}/merged.bin，删 chunk blobs
+    AX->>AX: 魔数校验 + yauzl 预扫描（条目/解压比/穿越）+ 安全解压到 /tmp/{id}/extracted
+    AX->>ST: stageExtracted()：extracted/** 上传到 Blob tmp/{id}/extracted/**
+    AX->>ST: 清理 /tmp/{id}（尽力而为，冷启动本就重置）
+    AX-->>UI: 200 {fileCount, fileTree, entryFileSuggested, ignoredFiles}
+
+    U->>UI: 选入口文件 + 填标题/可见性/TTL → 点「发布」
+    UI->>AP: POST {uploadId, title, visibility:"PUBLIC", ttlDays:90, entryFile}
+    AP->>DB: 生成 slug + BEGIN/INSERT Project+ProjectStats/COMMIT（Turso）
+    AP->>ST: commitToProject()：LIST staging → 逐个下载→PUT projects/{slug}/** → 写 meta.json → 删 staging
+    AP-->>UI: 200 {slug, sandboxUrl:"/sandbox/{slug}/", expireAt}
+    UI->>U: 渲染 PublishSuccess（短链 + 二维码 + 有效期）
+
+%% ===== 4.2 生产沙箱读取（Blob 公共读 + 统一安全头） =====
+sequenceDiagram
+    autonumber
+    actor U as 用户浏览器
+    participant SB as /sandbox/{slug}/** Route
+    participant ST as Storage(blob 分支)
+    participant BL as BlobClient
+    participant PUB as {storeId}.public.blob.vercel-storage.com
+
+    U->>SB: GET /sandbox/k7Rm2xQz/
+    SB->>SB: resolveForSandbox(slug)：DB 状态校验（ACTIVE/ARCHIVED/404 映射不变）
+    SB->>ST: readProjectFile(slug, "index.html")
+    ST->>ST: relPath 归一化 + 拒绝 .kernel/ 前缀与穿越（双保险）
+    ST->>BL: get("projects/k7Rm2xQz/index.html")
+    BL->>PUB: GET https://{storeId}.public.blob.vercel-storage.com/...（免鉴权）
+    PUB-->>BL: 200 bytes
+    BL-->>ST: buffer + contentType
+    ST-->>SB: {buffer, size, contentType}
+    SB->>SB: buildSecurityHeaders(CSP sandbox 不透明源, no-cache) + 计浏览（仅入口）
+    SB-->>U: 200 text/html + 安全头（无 Set-Cookie，与本地逐条一致）
+
+%% ===== 4.3 Vercel Cron 触发：鉴权 → 空库自动 seed → 生命周期 runAll =====
+sequenceDiagram
+    autonumber
+    participant VC as Vercel Cron（每日 03:10 UTC，GET）
+    participant CR as /api/cron/run Route
+    participant SD as SeedRunner
+    participant LS as LifecycleService(runAll)
+    participant DB as Prisma→Turso
+    participant ST as Storage(blob)
+
+    VC->>CR: GET /api/cron/run（Authorization: Bearer {CRON_SECRET}）
+    CR->>CR: assertCronSecret()：常量时间比较
+    alt secret 缺失/不匹配
+        CR-->>VC: 403 {ok:false, error:{code:FORBIDDEN}}
+    else 通过
+        alt NODE_ENV=production 且库空
+            CR->>DB: project.count() === 0 ?
+            CR->>SD: runSeed(prisma)：用户/3 件演示作品/活动/收藏/风控演示票
+            SD->>DB: upsert 全部记录（Turso）
+            SD->>ST: 素材文件上传 Blob projects/{slug}/** + meta.json
+        end
+        CR->>LS: runAll()
+        LS->>DB: archiveExpired（expireAt 到期 → ARCHIVED）
+        LS->>DB: purgeArchived（purgeAt 到期 → PURGED）
+        LS->>ST: removeProjectDir(slug)：LIST+DELETE Blob projects/{slug}/**，记 freedBytes
+        LS->>ST: gcTmp：LIST tmp/（folded）删超 2h
+        LS->>ST: scanOrphans：LIST projects/（folded）对比 DB，只报告
+        LS->>DB: 全部动作写 CleanupLog
+        LS-->>CR: CleanupRunResult {batchId, reports, totals}
+        CR-->>VC: 200 {ok:true, data:{batchId, reports, totals}}
+    end

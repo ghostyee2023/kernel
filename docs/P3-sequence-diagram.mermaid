@@ -1,0 +1,71 @@
+sequenceDiagram
+    autonumber
+    actor U as 登录用户
+    participant B as FavoriteButton (Client)
+    participant F as POST /api/projects/:slug/favorite
+    participant FS as FavoriteService
+    participant PS as ProjectService(peek)
+    participant DB as Prisma / SQLite
+
+    U->>B: 点击收藏星标
+    alt 未登录
+        B->>B: router.push(/login?next=当前页)
+    else 已登录
+        B->>F: POST（无 body）
+        F->>F: requireUser()
+        F->>FS: toggle(slug, userId)
+        FS->>PS: peek(slug)
+        alt 不存在 / PRIVATE / PURGED / BLOCKED
+            PS-->>FS: null 或拒绝
+            FS-->>F: NOT_FOUND（不泄漏存在性）
+            F-->>B: 404 toast「作品不存在或已下线」
+        else 可收藏（含 ARCHIVED）
+            FS->>DB: findUnique({userId_projectId})
+            alt 已收藏
+                FS->>DB: DELETE Favorite
+                FS-->>F: {favorited:false}
+            else 未收藏
+                FS->>DB: CREATE Favorite
+                Note over FS,DB: 并发双击撞 @@unique(P2002) → 幂等返回 {favorited:true}
+                FS-->>F: {favorited:true}
+            end
+            F-->>B: 200 {favorited}
+            B->>B: 本地切换星标态 + toast
+            B->>B: router.refresh() 同步计数卡/其它卡片收藏态
+        end
+    end
+
+
+---
+
+sequenceDiagram
+    autonumber
+    actor U as 登录用户
+    participant D as /dashboard (RSC)
+    participant A as lib/auth getSession
+    participant PS as ProjectService
+    participant FS as FavoriteService
+    participant CS as CampaignService
+    participant DB as Prisma / SQLite
+
+    U->>D: GET /dashboard?tab=favorites
+    D->>A: getSession()
+    alt 未登录
+        A-->>D: null
+        D-->>U: 302 /login?next=/dashboard
+    else 已登录
+        D->>D: 归一化 tab（非法值回落 published）
+        D->>PS: myStats(userId)
+        D->>FS: count(userId)
+        PS->>DB: count + aggregate(projectStats)
+        D-->>U: user-head + 4 张 KPI 计数卡（SSR）
+        D->>D: .segment Tab 导航（Link → ?tab=）
+        alt tab=published
+            D->>PS: listMine(userId) → MyProjectsPanel(initialRows)
+        else tab=joined
+            D->>CS: listJoinedByUser(userId) → JoinedCampaignsList(initial)
+        else tab=favorites
+            D->>FS: list(userId) + myFavoriteIds(userId) → FavoritesPanel(initialProjects)
+        end
+        D-->>U: 当前 Tab 内容（SSR，client 子组件接管交互）
+    end

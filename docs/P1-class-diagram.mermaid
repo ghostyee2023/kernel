@@ -1,0 +1,94 @@
+classDiagram
+    direction LR
+
+    class Campaign {
+        +String id
+        +String slug
+        +String title
+        +String description
+        +String coverUrl
+        +String status
+        +DateTime collectEndAt
+        +DateTime voteStartAt
+        +DateTime voteEndAt
+        +Int maxVotesPerUser
+        +Boolean allowSelfVote
+        +Int voteWeight
+        +String authorId
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+
+    class ProjectCampaign {
+        +String campaignId
+        +String projectId
+        +String status
+        +DateTime joinedAt
+    }
+
+    class Vote {
+        +String id
+        +String projectId
+        +String userId
+        +String campaignId
+        +DateTime createdAt
+    }
+
+    class User {
+        +String id
+        +String nickname
+        +String role
+    }
+
+    class Project {
+        +String id
+        +String slug
+        +String title
+        +String visibility
+        +String status
+        +String authorId
+    }
+
+    Campaign "1" --> "0..*" ProjectCampaign : projects
+    Project "1" --> "0..*" ProjectCampaign : campaigns
+    Campaign "1" --> "0..*" Vote : votes
+    Project "1" --> "0..*" Vote : votes
+    User "1" --> "0..*" Campaign : authors
+    User "1" --> "0..*" Vote : casts
+
+    class CampaignService {
+        +computeStatus(c, now) CampaignStatus
+        +list(query) PagedResult~CampaignCardDTO~
+        +listSelectable() CampaignCardDTO[]
+        +getBySlug(slug) CampaignDetailDTO
+        +getById(id) CampaignDTO
+        +getProjectCampaigns(projectId) CampaignBadgeDTO[]
+        +create(input, actorId) CampaignDTO
+        +patch(id, input, actorId) CampaignDTO
+        +join(slug, projectId, userId) CampaignJoinResult
+        +removeProject(id, projectId, actorId) void
+        +rank(campaignSlug, limit) CampaignRankItemDTO[]
+        +quota(slug, userId) QuotaInfo
+        +myProjects(userId, campaignId) ProjectCardLite[]
+        +myJoinedIds(userId, campaignId) string[]
+    }
+
+    class VoteService {
+        +vote(projectId, userId, options?) Promise~VoteResult~
+        +unvote(projectId, userId) Promise~VoteResult~
+        +myVotes(userId) MyVote[]
+        +hasVoted(projectId, userId) Boolean
+        +campaignVoteCount(campaignId, projectId) Promise~Int~
+    }
+
+    class ProjectService {
+        +list(query) PagedResult~ProjectDTO~
+        +rank(limit) ProjectDTO[]
+    }
+
+    CampaignService ..> Campaign : persists
+    CampaignService ..> ProjectCampaign : persists
+    VoteService ..> Vote : persists
+    VoteService ..> ProjectStats : updates
+    VoteService ..> CampaignService : uses computeStatus / campaign checks
+    ProjectService ..> ProjectCampaign : filters by campaign

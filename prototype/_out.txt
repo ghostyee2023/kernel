@@ -1,0 +1,7 @@
+scripts 3/3 OK
+brace 560/560 OK
+stroke-width values: stroke-width="1.9" (ALL 1.9 OK)
+gradient-text count: 1 (only .hero h1 em OK)
+prism: 0
+F2A03D: 0
+emoji: 0

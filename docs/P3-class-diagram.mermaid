@@ -1,0 +1,72 @@
+classDiagram
+    direction LR
+
+    class Favorite {
+        +String id
+        +String userId
+        +String projectId
+        +DateTime createdAt
+    }
+
+    class User {
+        +String id
+        +String nickname
+        +String role
+    }
+
+    class Project {
+        +String id
+        +String slug
+        +String title
+        +String visibility
+        +String status
+        +String authorId
+        +Int viewCount
+        +Int voteCount
+    }
+
+    class Campaign {
+        +String id
+        +String slug
+        +String title
+        +String status
+        +DateTime collectEndAt
+        +DateTime voteStartAt
+        +DateTime voteEndAt
+    }
+
+    class ProjectCampaign {
+        +String campaignId
+        +String projectId
+        +String status
+        +DateTime joinedAt
+    }
+
+    User "1" --> "0..*" Favorite : favorites
+    Project "1" --> "0..*" Favorite : favoritedBy
+    User "1" --> "0..*" Project : authors
+    Project "1" --> "0..*" ProjectCampaign : campaigns
+    Campaign "1" --> "0..*" ProjectCampaign : projects
+
+    class FavoriteService {
+        +toggle(slug, userId) Promise~{favorited}~
+        +myFavorites(userId) Promise~FavoriteItem[]~
+        +myFavoriteIds(userId) Promise~string[]~
+        +hasFavorited(projectId, userId) Promise~boolean~
+        +list(userId) Promise~ProjectDTO[]~
+        +count(userId) Promise~number~
+    }
+
+    class ProjectService {
+        +listMine(userId) Promise~ProjectDTO[]~
+        +myStats(userId) Promise~MyProjectStats~
+    }
+
+    class CampaignService {
+        +listJoinedByUser(userId) Promise~JoinedCampaignDTO[]~
+    }
+
+    FavoriteService ..> Favorite : persists
+    FavoriteService ..> ProjectService : uses peek (可见性判定)
+    CampaignService ..> ProjectCampaign : reads
+    CampaignService ..> Campaign : reads

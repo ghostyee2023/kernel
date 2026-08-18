@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nebula · 一页式产品落地页</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="#top">
+    <span class="brand__mark"></span>
+    <span>Nebula</span>
+  </a>
+  <nav class="topbar__nav">
+    <a href="#features">特性</a>
+    <a href="#numbers">数据</a>
+    <a href="#pricing">定价</a>
+  </nav>
+  <a class="cta cta--sm" href="#pricing">免费开始</a>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <p class="eyebrow">STATIC · ZERO BUILD</p>
+    <h1>把想法，<em>折叠</em>成一页。</h1>
+    <p class="lede">
+      Nebula 是一套纯 CSS 落地页骨架：没有构建步骤，没有运行时依赖，
+      一个 HTML 加一份样式表，就能交付一次完整的产品叙事。
+    </p>
+    <div class="hero__actions">
+      <a class="cta" href="#features">看看能做什么</a>
+      <a class="ghost" href="#numbers">性能数据</a>
+    </div>
+    <div class="hero__orbit" aria-hidden="true">
+      <i class="orbit orbit--1"></i>
+      <i class="orbit orbit--2"></i>
+      <i class="orbit orbit--3"></i>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <article class="feature">
+      <div class="feature__icon feature__icon--a"></div>
+      <h3>零构建</h3>
+      <p>直接双击 index.html 就能跑。没有 node_modules，没有打包缓存，没有版本漂移。</p>
+    </article>
+    <article class="feature">
+      <div class="feature__icon feature__icon--b"></div>
+      <h3>纯 CSS 动效</h3>
+      <p>全部动画由 transition 与 keyframes 驱动，尊重 prefers-reduced-motion。</p>
+    </article>
+    <article class="feature">
+      <div class="feature__icon feature__icon--c"></div>
+      <h3>自适应排版</h3>
+      <p>基于 clamp() 的流体字号，从 360px 手机到 2560px 宽屏都无需断点堆砌。</p>
+    </article>
+  </section>
+
+  <section class="numbers" id="numbers">
+    <div class="number">
+      <strong>14<span>KB</span></strong>
+      <span class="number__label">首屏总体积</span>
+    </div>
+    <div class="number">
+      <strong>0<span>个</span></strong>
+      <span class="number__label">第三方依赖</span>
+    </div>
+    <div class="number">
+      <strong>100<span>分</span></strong>
+      <span class="number__label">Lighthouse 性能</span>
+    </div>
+    <div class="number">
+      <strong>1<span>文件</span></strong>
+      <span class="number__label">部署单元</span>
+    </div>
+  </section>
+
+  <section class="pricing" id="pricing">
+    <h2>选一个开始的方式</h2>
+    <div class="plans">
+      <article class="plan">
+        <h3>Seed</h3>
+        <p class="plan__price">￥0</p>
+        <ul>
+          <li>单页部署</li>
+          <li>公开短链</li>
+          <li>90 天保留</li>
+        </ul>
+        <a class="ghost" href="#top">开始使用</a>
+      </article>
+      <article class="plan plan--hero">
+        <span class="plan__tag">推荐</span>
+        <h3>Sprout</h3>
+        <p class="plan__price">￥29<small>/月</small></p>
+        <ul>
+          <li>多页作品集</li>
+          <li>自定义短码</li>
+          <li>永久保留</li>
+        </ul>
+        <a class="cta" href="#top">立即升级</a>
+      </article>
+      <article class="plan">
+        <h3>Canopy</h3>
+        <p class="plan__price">￥99<small>/月</small></p>
+        <ul>
+          <li>团队协作</li>
+          <li>独立域名</li>
+          <li>访问统计</li>
+        </ul>
+        <a class="ghost" href="#top">联系我们</a>
+      </article>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>Nebula · 静态落地页骨架</span>
+  <span class="foot__slogan">Core. Code. Create.</span>
+</footer>
+
+</body>
+</html>

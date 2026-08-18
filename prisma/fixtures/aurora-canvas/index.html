@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Aurora Field · 极光粒子场</title>
+<style>
+  :root {
+    --ink: hsl(222 22% 6%);
+    --iris: hsl(233 60% 56%);
+    --cyan: hsl(177 82% 40%);
+    --magenta: hsl(328 72% 58%);
+    --paper: hsl(0 0% 100%);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    overflow: hidden;
+  }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  .hud {
+    position: fixed; left: 24px; bottom: 24px;
+    display: flex; flex-direction: column; gap: 8px;
+    pointer-events: none;
+  }
+  .hud h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.4px; }
+  .hud p { font-size: 13px; opacity: 0.62; line-height: 1.6; }
+  .legend { display: flex; gap: 14px; margin-top: 4px; }
+  .legend span { display: flex; align-items: center; gap: 6px; font-size: 12px; opacity: 0.72; }
+  .legend i { width: 8px; height: 8px; border-radius: 50%; display: block; }
+  .fps {
+    position: fixed; right: 24px; top: 20px;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+    font-size: 12px; opacity: 0.5; font-variant-numeric: tabular-nums;
+  }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<div class="hud">
+  <h1>Aurora Field</h1>
+  <p>三色流体粒子场 · 纯 Canvas 2D 绘制，无任何外部依赖<br />移动鼠标或触摸屏幕可扰动流场</p>
+  <div class="legend">
+    <span><i style="background: var(--iris)"></i>Iris</span>
+    <span><i style="background: var(--cyan)"></i>Cyan</span>
+    <span><i style="background: var(--magenta)"></i>Magenta</span>
+  </div>
+</div>
+
+<div class="fps" id="fps">-- fps</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var canvas = document.getElementById('stage');
+  var ctx = canvas.getContext('2d');
+  var fpsEl = document.getElementById('fps');
+
+  var PALETTE = [
+    { h: 233, s: 60, l: 56 },
+    { h: 177, s: 82, l: 40 },
+    { h: 328, s: 72, l: 58 }
+  ];
+
+  var particles = [];
+  var pointer = { x: 0.5, y: 0.5, active: false };
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var width = 0;
+  var height = 0;
+
+  /** 依据视口尺寸重建画布与粒子数量。 */
+  function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    var target = Math.round(Math.min(420, Math.max(140, (width * height) / 5200)));
+    particles = [];
+    for (var i = 0; i < target; i++) {
+      particles.push(createParticle(i, target));
+    }
+  }
+
+  /** 创建单个粒子。 */
+  function createParticle(index, total) {
+    var tone = PALETTE[index % PALETTE.length];
+    return {
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: 0,
+      vy: 0,
+      radius: 0.8 + Math.random() * 2.2,
+      phase: (index / total) * Math.PI * 2,
+      speed: 0.4 + Math.random() * 0.9,
+      tone: tone
+    };
+  }
+
+  /** 简化的流场：两层正弦叠加，随时间缓慢演化。 */
+  function flowAngle(x, y, t) {
+    var nx = x / 260;
+    var ny = y / 260;
+    return (
+      Math.sin(nx + t * 0.32) * 1.6 +
+      Math.cos(ny - t * 0.21) * 1.4 +
+      Math.sin((nx + ny) * 0.5 + t * 0.14) * 1.1
+    );
+  }
+
+  var last = performance.now();
+  var frames = 0;
+  var acc = 0;
+
+  /** 主循环。 */
+  function frame(now) {
+    var dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+    var t = now / 1000;
+
+    acc += dt;
+    frames++;
+    if (acc >= 0.5) {
+      fpsEl.textContent = Math.round(frames / acc) + ' fps';
+      frames = 0;
+      acc = 0;
+    }
+
+    ctx.fillStyle = 'hsla(222, 22%, 6%, 0.14)';
+    ctx.fillRect(0, 0, width, height);
+    ctx.globalCompositeOperation = 'lighter';
+
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      var angle = flowAngle(p.x, p.y, t + p.phase * 0.12);
+      var ax = Math.cos(angle) * p.speed * 26;
+      var ay = Math.sin(angle) * p.speed * 26;
+
+      if (pointer.active) {
+        var dx = p.x - pointer.x * width;
+        var dy = p.y - pointer.y * height;
+        var dist2 = dx * dx + dy * dy;
+        if (dist2 < 40000 && dist2 > 1) {
+          var push = 2600 / dist2;
+          ax += dx * push;
+          ay += dy * push;
+        }
+      }
+
+      p.vx = p.vx * 0.92 + ax * dt;
+      p.vy = p.vy * 0.92 + ay * dt;
+      p.x += p.vx * dt * 24;
+      p.y += p.vy * dt * 24;
+
+      if (p.x < -20) p.x = width + 20;
+      if (p.x > width + 20) p.x = -20;
+      if (p.y < -20) p.y = height + 20;
+      if (p.y > height + 20) p.y = -20;
+
+      var alpha = 0.10 + Math.min(0.34, Math.hypot(p.vx, p.vy) * 0.02);
+      ctx.fillStyle = 'hsla(' + p.tone.h + ', ' + p.tone.s + '%, ' + p.tone.l + '%, ' + alpha.toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.globalCompositeOperation = 'source-over';
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', resize);
+  window.addEventListener('pointermove', function (e) {
+    pointer.x = e.clientX / window.innerWidth;
+    pointer.y = e.clientY / window.innerHeight;
+    pointer.active = true;
+  });
+  window.addEventListener('pointerleave', function () {
+    pointer.active = false;
+  });
+
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

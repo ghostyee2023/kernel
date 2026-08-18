@@ -1,0 +1,144 @@
+%% Kernel · 创意种子 — P0 类图（数据模型 + 领域服务）
+%% 来源：docs/P0-架构与任务分解.md §3.2
+%% 环境：Next.js 15 + Prisma + SQLite（本地轻量桩）
+
+classDiagram
+    direction LR
+
+    class User {
+        +String id
+        +String nickname
+        +String avatarUrl
+        +String role
+        +String status
+        +DateTime createdAt
+    }
+
+    class Project {
+        +String id
+        +String slug
+        +Boolean customSlug
+        +String title
+        +String summary
+        +String description
+        +String coverUrl
+        +String sourceType
+        +String externalUrl
+        +String entryFile
+        +Int fileCount
+        +Int sizeBytes
+        +String visibility
+        +String status
+        +Int ttlDays
+        +DateTime expireAt
+        +Boolean exemptExpire
+        +DateTime archivedAt
+        +DateTime purgeAt
+        +Boolean pinned
+        +String authorAlias
+        +String authorId
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+
+    class ProjectStats {
+        +String projectId
+        +Int viewCount
+        +Int voteCount
+        +Int uniqueVisitor
+        +Float hotScore
+        +DateTime updatedAt
+    }
+
+    class CleanupLog {
+        +String id
+        +String batchId
+        +String projectId
+        +String action
+        +Int freedBytes
+        +Boolean success
+        +String message
+        +DateTime createdAt
+    }
+
+    User "1" --> "0..*" Project : authors
+    Project "1" --> "0..1" ProjectStats : has
+    Project "1" --> "0..*" CleanupLog : logs
+
+    class SlugService {
+        +generate() String
+        +isReserved(slug) Boolean
+        +isValidCustom(slug) Boolean
+        +generateUnique(retry) Promise~String~
+    }
+
+    class StorageService {
+        +resolveProjectDir(slug) String
+        +resolveSafePath(slug, rel) String
+        +resolveTmpDir(uploadId) String
+        +commitToProject(uploadId, slug) Promise~void~
+        +removeProjectDir(slug) Promise~Int~
+        +writeMeta(slug, meta) Promise~void~
+        +readMeta(slug) Promise~ProjectMeta~
+        +dirSize(dir) Promise~Int~
+    }
+
+    class UploadSessionService {
+        +init(fileName, fileSize, mode) Promise~UploadSession~
+        +writeChunk(uploadId, index, buf) Promise~void~
+        +merge(uploadId) Promise~String~
+        +load(uploadId) Promise~UploadSession~
+        +discard(uploadId) Promise~void~
+    }
+
+    class FileValidator {
+        +checkSize(bytes, mode) void
+        +detectMagic(path) Promise~String~
+        +assertAllowedExt(name) void
+        +filterEntries(names) FilterResult
+    }
+
+    class ZipInspector {
+        +prescan(zipPath) Promise~ZipScanResult~
+        +extractSafely(zipPath, destDir) Promise~ExtractResult~
+        +detectEntryFile(fileList) String
+    }
+
+    class ProjectService {
+        +create(input) Promise~ProjectDTO~
+        +list(query) Promise~PagedResult~
+        +getBySlug(slug) Promise~ProjectDTO~
+        +patch(slug, input) Promise~ProjectDTO~
+        +renew(slug, ttlDays) Promise~ProjectDTO~
+        +softDelete(slug) Promise~void~
+        +incrementView(slug) Promise~void~
+    }
+
+    class LifecycleService {
+        +archiveExpired(batchId) Promise~CleanupReport~
+        +purgeArchived(batchId) Promise~CleanupReport~
+        +gcTmp(batchId) Promise~CleanupReport~
+    }
+
+    class SandboxService {
+        +buildSecurityHeaders() Headers
+        +contentTypeOf(ext) String
+        +cacheControlOf(ext) String
+        +normalizeRequestPath(parts) String
+    }
+
+    class ApiResponse {
+        +ok(data, meta) Response
+        +fail(code, message) Response
+        +statusOf(code) Int
+    }
+
+    ProjectService ..> SlugService : uses
+    ProjectService ..> StorageService : uses
+    ProjectService ..> Project : persists
+    UploadSessionService ..> StorageService : uses
+    ZipInspector ..> FileValidator : uses
+    UploadSessionService ..> ZipInspector : uses
+    LifecycleService ..> StorageService : uses
+    LifecycleService ..> CleanupLog : writes
+    SandboxService ..> StorageService : reads

@@ -1,0 +1,72 @@
+sequenceDiagram
+    autonumber
+    actor U as 登录用户
+    participant VB as VoteHero / CampaignVoteButton (Client)
+    participant FP as FingerprintLib (Client)
+    participant VA as POST /api/votes
+    participant VS as VoteService
+    participant RS as RiskService
+    participant DB as Prisma / SQLite
+
+    U->>VB: 点击投票
+    VB->>FP: getDeviceFingerprint() + getDwellMs()
+    FP-->>VB: { deviceHash, uaHash } + dwellMs
+    VB->>VA: POST { projectId, campaignId?, deviceHash, dwellMs }
+    VA->>VA: requireUser() + resolveClientIp(request) → ip
+    VA->>VS: vote(projectId, userId, { campaignId?, deviceHash, dwellMs, ip })
+    VS->>DB: 校验链（作品可投 / 活动期 / 报名 / 自投 / quota / 已投幂等）
+    alt 已投或校验失败
+        VS-->>VA: 幂等返回 / AppError
+    else 通过
+        VS->>DB: 取最近票（sameIpRecent / sameIpAll / sameDeviceAll）
+        VS->>RS: evaluateRisk({ userId, ip, deviceHash, 最近票 })
+        RS-->>VS: { score, reasons, suspicious }
+        VS->>DB: tx: INSERT Vote(ip, deviceHash, dwellMs, riskScore, valid=true) + stats.voteCount+1
+        VS-->>VA: VoteResult
+    end
+    VA-->>VB: ok / toast + router.refresh()
+
+    Note over U,DB: ------- 后台审计聚合 + 批量作废 -------
+
+    actor A as 管理员
+    participant RP as /admin/risk (RSC)
+    participant PAN as RiskAuditPanel (Client)
+    participant AG as GET /api/admin/votes/audit
+    participant DT as GET /api/admin/votes/audit/detail
+    participant IV as POST /api/admin/votes/invalidate
+    participant AU as AuditService(writeAudit)
+
+    RP->>RS: auditGroups({group:'ip', page:1})
+    RS->>DB: $queryRaw GROUP BY ip（COUNT(DISTINCT userId/deviceHash) + MAX(riskScore)）
+    RS-->>RP: PagedResult~RiskGroupDTO~ + 汇总计数
+    RP-->>A: 聚合卡片 + 分组表（initialRows）
+
+    A->>PAN: 切换 groupBy / 活动 / 仅看可疑 / 翻页
+    PAN->>AG: GET ?group=ip&campaignId=&suspiciousOnly=1&page=
+    AG->>AG: requireAdmin()
+    AG->>RS: auditGroups(query)
+    RS->>DB: $queryRaw 分组聚合
+    RS-->>AG: RiskGroupDTO[]
+    AG-->>PAN: ok(...) → 替换表格
+
+    A->>PAN: 点某分组「明细」
+    PAN->>DT: GET ?group=ip&key=1.2.3.4&page=
+    DT->>DT: requireAdmin()
+    DT->>RS: auditDetail(query)
+    RS->>DB: Vote join project/user where ip=key
+    RS-->>DT: RiskVoteDTO[]
+    DT-->>PAN: 明细表 + 复选
+
+    A->>PAN: 选中若干票 → 作废（ConfirmDialog + 原因）
+    PAN->>IV: POST { voteIds, reason } 或 { scope:{type:'ip',value}, reason }
+    IV->>IV: requireAdmin()
+    IV->>RS: invalidate(input, actor)
+    RS->>DB: BEGIN tx
+    RS->>DB: UPDATE Vote SET valid=false, invalidReason=? WHERE id IN (...)
+    loop 每个受影响 project
+        RS->>DB: COUNT(valid=true) → UPDATE ProjectStats(voteCount=?, voteInvalid+新作废数)
+    end
+    RS->>AU: writeAudit(admin.votes.invalidate, targetId=batch:{batchId})
+    RS->>DB: COMMIT
+    RS-->>IV: { invalidated, affectedProjects, batchId, reason }
+    IV-->>PAN: ok(...) → toast「作废 N 票，涉及 M 件作品」+ refresh

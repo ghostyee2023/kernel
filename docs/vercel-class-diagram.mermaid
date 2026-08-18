@@ -1,0 +1,80 @@
+classDiagram
+    direction LR
+
+    class StorageFacade {
+        +isBlobBackend() Boolean
+        +readProjectFile(slug, rel) Promise~ProjectFile~
+        +statProjectFile(slug, rel) Promise~FileStat~
+        +writeProjectFile(slug, rel, data, contentType) Promise~void~
+        +listProjectFiles(slug) Promise~FileEntry[]~
+        +projectDirSize(slug) Promise~Int~
+        +writeMeta(slug, meta) Promise~void~
+        +readMeta(slug) Promise~ProjectMeta~
+        +removeProjectDir(slug) Promise~Int~
+        +listProjectSlugs() Promise~String[]~
+        +listTmpDirs() Promise~TmpDir[]~
+        +writeChunk(uploadId, index, data) Promise~void~
+        +mergeChunks(uploadId, total) Promise~String~
+        +stageExtracted(uploadId) Promise~void~
+        +commitToProject(uploadId, slug) Promise~void~
+        +seedProjectFromDir(dir, slug) Promise~void~
+    }
+
+    class BlobClient {
+        +put(pathname, data, opts) Promise~BlobResult~
+        +get(pathname) Promise~Buffer~
+        +del(urls) Promise~void~
+        +list(prefix, opts) Promise~BlobList~
+        +publicUrl(pathname) String
+        +storeId() String
+    }
+
+    class LocalDisk {
+        +readFileBuffer(abs) Promise~Buffer~
+        +writeBinaryFile(abs, data) Promise~void~
+        +removeDir(abs) Promise~void~
+        +listFilesRecursive(abs) Promise~FileEntry[]~
+    }
+
+    class PrismaFactory {
+        +create() PrismaClient
+        +isTurso(url) Boolean
+    }
+
+    class PrismaLibSQLAdapter {
+        <<external @prisma/adapter-libsql>>
+    }
+
+    class CronRunRoute {
+        +GET(req) Response
+        +POST(req) Response
+        -assertCronSecret(req) void
+        -ensureSeeded(prisma) Promise~void~
+    }
+
+    class SeedRunner {
+        +runSeed(prisma) Promise~void~
+        -seedUser() 
+        -seedProject(spec) 
+        -seedCampaign() 
+        -seedRiskVotes() 
+    }
+
+    class LifecycleService {
+        +runAll(now) Promise~CleanupRunResult~
+        +archiveExpired(batch, now) 
+        +purgeArchived(batch, now) 
+        +gcTmp(batch) 
+        +scanOrphans(batch) 
+    }
+
+    StorageFacade --> BlobClient : 云分支(仅 storage.ts 消费)
+    StorageFacade --> LocalDisk : 本地分支
+    PrismaFactory --> PrismaLibSQLAdapter : libsql: URL 时
+    CronRunRoute --> StorageFacade : 使用
+    CronRunRoute --> PrismaFactory : 使用
+    CronRunRoute --> SeedRunner : 生产空库自动 seed
+    CronRunRoute --> LifecycleService : runAll
+    LifecycleService --> StorageFacade : 清理/统计
+    SeedRunner --> StorageFacade : 素材落盘(本地或 Blob)
+    SeedRunner --> PrismaFactory : 入库(本地或 Turso)

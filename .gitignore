@@ -1,0 +1,47 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next.js
+.next/
+.next.*/
+out/
+build/
+next-env.d.ts.bak
+
+# 本地对象存储根（作品文件、上传中转、封面）
+.kernel-data/
+
+# SQLite 本地库
+prisma/*.db
+prisma/*.db-journal
+
+# env（真实环境变量走 .env.local / Vercel 控制台，.env 仅本地默认不入库）
+.env
+.env.local
+.env.*.local
+
+# 本地临时草稿（不入库）
+.tmp-*
+
+# misc
+.DS_Store
+*.pem
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.vscode/
+.idea/
+tsconfig.tsbuildinfo*
+
+# 开发/QA 残留（不入库）
+*.bak
+*.tmp
+build-out/
+.qa-out/
+tmp-*
+.workbuddy/
+prisma-engines.log
+prisma-generate.log

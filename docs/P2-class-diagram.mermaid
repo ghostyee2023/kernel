@@ -1,0 +1,84 @@
+classDiagram
+    direction LR
+
+    class User {
+        +String id
+        +String username
+        +String nickname
+        +String role
+        +String status
+        +DateTime createdAt
+    }
+
+    class Project {
+        +String id
+        +String slug
+        +String title
+        +String visibility
+        +String status
+        +Boolean pinned
+        +DateTime expireAt
+        +DateTime archivedAt
+        +DateTime purgeAt
+        +Int sizeBytes
+        +String authorId
+    }
+
+    class ProjectStats {
+        +String projectId
+        +Int viewCount
+        +Int voteCount
+    }
+
+    class CleanupLog {
+        +String id
+        +String batchId
+        +String action
+        +Boolean success
+        +Int freedBytes
+        +String message
+        +DateTime createdAt
+    }
+
+    class AuditLog {
+        +String id
+        +String actorId
+        +String action
+        +String targetType
+        +String targetId
+        +String detail
+        +String meta
+        +String ip
+        +DateTime createdAt
+    }
+
+    User "1" --> "0..*" Project : authors
+    User "1" --> "0..*" AuditLog : acts
+    Project "1" --> "0..1" ProjectStats : has
+    Project "1" --> "0..*" CleanupLog : logs
+    Project "1" --> "0..*" AuditLog : targeted
+
+    class AuthService {
+        +requireUser() Promise~SessionPayload~
+        +requireAdmin() Promise~SessionPayload~
+        +isAdminRole(role) Boolean
+    }
+
+    class AdminService {
+        +overview() Promise~OverviewMetrics~
+        +listProjects(query) Promise~PagedResult~AdminProjectDTO~~
+        +batchOps(input, actor) Promise~AdminBatchResult~
+        +listUsers(query) Promise~PagedResult~AdminUserDTO~~
+        +setUserBan(id, action, actor) Promise~AdminUserDTO~
+        +listCleanupLogs(query) Promise~PagedResult~CleanupLogDTO~~
+    }
+
+    class AuditService {
+        +writeAudit(params) Promise~void~
+    }
+
+    AdminService ..> AuditService : writes audit
+    AdminService ..> Project : persists
+    AdminService ..> User : persists
+    AdminService ..> CleanupLog : reads
+    AuthService ..> AdminService : guards (requireAdmin)

@@ -1,0 +1,71 @@
+classDiagram
+    direction LR
+
+    class Vote {
+        +String id
+        +String projectId
+        +String userId
+        +String campaignId
+        +Boolean valid
+        +String invalidReason
+        +String ip
+        +String uaHash
+        +String deviceHash
+        +Int dwellMs
+        +Int riskScore
+        +DateTime createdAt
+    }
+
+    class ProjectStats {
+        +String projectId
+        +Int voteCount
+        +Int voteInvalid
+    }
+
+    class RiskService {
+        +ruleIpHighFreq(votes, ctx) RiskRuleResult[]
+        +ruleIpMultiAccount(votes, ctx) RiskRuleResult[]
+        +ruleDeviceMultiAccount(votes, ctx) RiskRuleResult[]
+        +ruleRapidConsecutive(votes, ctx) RiskRuleResult[]
+        +evaluateRisk(input) RiskVerdict
+        +auditGroups(query) PagedResult~RiskGroupDTO~
+        +auditDetail(query) PagedResult~RiskVoteDTO~
+        +invalidate(input, actor) InvalidateResult
+    }
+
+    class VoteService {
+        +vote(projectId, userId, options) VoteResult
+        +unvote(projectId, userId) VoteResult
+        +campaignVoteCount(campaignId, projectId) Int
+        +usedQuota(campaignId, userId) Int
+    }
+
+    class CampaignService {
+        +campaignVoteMap(campaignId) Map~string, number~
+    }
+
+    class FingerprintLib {
+        +getDeviceFingerprint() Promise~Fingerprint~
+        +getDwellMs() Int
+        +hashFnv1a(input) String
+        +drawCanvasHash() String
+    }
+
+    class VoteHero {
+        +collectAndVote() Promise~void~
+    }
+
+    class CampaignVoteButton {
+        +collectAndToggle() Promise~void~
+    }
+
+    Vote "0..*" --> "1" ProjectStats : counts(valid)
+    RiskService ..> Vote : aggregates / invalidates
+    RiskService ..> ProjectStats : recalcs voteCount
+    VoteService ..> RiskService : evaluate on insert
+    VoteService ..> Vote : persists
+    CampaignService ..> Vote : counts valid
+    FingerprintLib ..> VoteHero : reports deviceHash/dwellMs
+    FingerprintLib ..> CampaignVoteButton : reports deviceHash/dwellMs
+    VoteHero ..> VoteService : POST /api/votes
+    CampaignVoteButton ..> VoteService : POST /api/votes

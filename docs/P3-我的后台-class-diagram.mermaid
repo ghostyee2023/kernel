@@ -1,0 +1,114 @@
+classDiagram
+    direction LR
+
+    class User {
+        +String id
+        +String username
+        +String nickname
+        +String role
+        +String status
+        +String passwordHash
+        +DateTime createdAt
+    }
+
+    class Project {
+        +String id
+        +String slug
+        +String title
+        +String visibility
+        +String status
+        +Int sizeBytes
+        +String authorId
+        +DateTime createdAt
+    }
+
+    class ProjectStats {
+        +String projectId
+        +Int viewCount
+        +Int voteCount
+    }
+
+    class Vote {
+        +String id
+        +String projectId
+        +String userId
+        +String campaignId
+        +Boolean valid
+        +String invalidReason
+        +DateTime createdAt
+    }
+
+    class Campaign {
+        +String id
+        +String slug
+        +String title
+    }
+
+    class Favorite {
+        +String userId
+        +String projectId
+        +DateTime createdAt
+    }
+
+    User "1" --> "0..*" Project : authors
+    User "1" --> "0..*" Vote : casts
+    User "1" --> "0..*" Favorite : favorites
+    Project "1" --> "0..1" ProjectStats : has
+    Project "1" --> "0..*" Vote : receives
+    Campaign "1" --> "0..*" Vote : owns
+
+    class AuthService {
+        +hashPassword(password) string
+        +verifyPassword(password, stored) boolean
+    }
+
+    class VoteService {
+        +myVotesFull(userId) MyVoteFullDTO[]
+        +votesReceivedByProject(userId) ReceivedVoteDTO[]
+    }
+
+    class ProjectService {
+        +myStats(userId) MyProjectStats
+        +listMine(userId) ProjectDTO[]
+    }
+
+    class CampaignService {
+        +countJoinedByUser(userId) number
+    }
+
+    class FavoriteService {
+        +list(userId) ProjectDTO[]
+        +myFavoriteIds(userId) string[]
+    }
+
+    class DashboardShell {
+        +activePage DashboardPage
+    }
+
+    class OverviewPanel {
+        +stats MyProjectStats
+        +joinedCount number
+        +recentProjects ProjectDTO[]
+    }
+
+    class MyVotesPanel {
+        +votesOut MyVoteFullDTO[]
+        +votesIn ReceivedVoteDTO[]
+    }
+
+    class SettingsPanel {
+        +user AccountInfo
+        +hasPassword boolean
+    }
+
+    VoteService ..> Vote : reads
+    VoteService ..> Project : joins
+    VoteService ..> Campaign : joins
+    ProjectService ..> Project : reads
+    ProjectService ..> ProjectStats : aggregates
+    CampaignService ..> ProjectCampaign : groups
+    FavoriteService ..> Favorite : reads
+    AuthService ..> User : persists
+    DashboardShell ..> OverviewPanel : hosts
+    DashboardShell ..> MyVotesPanel : hosts
+    DashboardShell ..> SettingsPanel : hosts

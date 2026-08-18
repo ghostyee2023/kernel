@@ -1,0 +1,72 @@
+sequenceDiagram
+    autonumber
+    actor A as 管理员
+    participant L as admin/layout.tsx
+    participant OV as admin/page.tsx (RSC)
+    participant AS as AdminService
+    participant AU as AuditService
+    participant DB as Prisma / SQLite
+    participant PJ as admin/projects/page.tsx (RSC)
+    participant PT as ProjectsTable (Client)
+    participant BA as POST /api/admin/projects/batch
+    participant US as admin/users/page.tsx (RSC)
+    participant UB as POST /api/admin/users/:id/ban
+    participant CC as admin/cleanup/page.tsx (RSC)
+    participant CR as POST /api/admin/cleanup/run
+
+    Note over A,L: 访问任意 /admin/*
+    L->>L: getSession() + isAdminRole()
+    alt 非 ADMIN
+        L-->>A: redirect /login?next=/admin
+    else ADMIN
+        L-->>A: AdminShell 侧栏 + 子页面
+    end
+
+    Note over A,OV: 概览页
+    OV->>AS: overview()
+    AS->>DB: count / aggregate（并行 6 组）
+    DB-->>AS: metrics
+    OV->>AS: listCleanupLogs({pageSize: 8})
+    AS-->>OV: recentLogs
+    OV-->>A: 6 张指标卡 + 最近清理日志
+
+    Note over A,PJ: 作品管理
+    PJ->>AS: listProjects({status,visibility,q,page})
+    AS->>DB: count + findMany(include author/stats)
+    DB-->>AS: rows
+    AS-->>PJ: AdminProjectDTO[]
+    PJ-->>A: 筛选条 + 表格（initialRows）
+
+    A->>PT: 筛选 / 翻页 / 行操作（下架/恢复/删除/续期/可见性/置顶）
+    PT->>BA: POST {operation, ids, payload}
+    BA->>BA: requireAdmin()
+    BA->>AS: batchOps(input, actor)
+    loop 每个 id
+        AS->>DB: 查 project → 应用操作（purge 走 storage.removeProjectDir）
+        AS->>AU: writeAudit(admin.project.{op}, meta{slug,title,before,after})
+        AU->>DB: INSERT AuditLog
+    end
+    AS-->>BA: {successCount, failCount, results}
+    BA-->>PT: ok(...)
+    PT->>PT: toast 结果 + router.refresh()
+
+    Note over A,US: 用户管理
+    US->>AS: listUsers({q,role,status,page})
+    AS->>DB: findMany + groupBy(projectCount)
+    AS-->>US: AdminUserDTO[]
+    A->>UB: POST {action:'ban'}
+    UB->>UB: requireAdmin()
+    UB->>AS: setUserBan(id, action, actor)
+    AS->>DB: UPDATE status（拒绝 ADMIN/自身）
+    AS->>AU: writeAudit(admin.user.ban)
+    AS-->>UB: {id, status}
+    UB-->>A: ok(...)
+
+    Note over A,CC: 清理中心
+    CC->>AS: listCleanupLogs({page,pageSize})
+    AS-->>CC: CleanupLogDTO[]
+    A->>CR: POST（手动触发）
+    CR->>CR: requireAdmin() 或 X-Admin-Token
+    CR->>CR: runAll() → 写 CleanupLog
+    CR->>AU: writeAudit(admin.cleanup.run, meta{batchId,totals})
+    CR-->>A: CleanupRunResult

@@ -1,0 +1,70 @@
+sequenceDiagram
+    autonumber
+    actor U as 登录用户
+    participant D as /dashboard (RSC)
+    participant A as lib/auth getSession
+    participant PS as ProjectService
+    participant CS as CampaignService
+    participant DB as Prisma / SQLite
+
+    U->>D: GET /dashboard
+    D->>A: getSession()
+    alt 未登录
+        A-->>D: null
+        D-->>U: 302 /login?next=/dashboard
+    else 已登录
+        D->>D: 归一化 page：?page 非法→overview；缺省读 ?tab 兼容映射（published→myprojects / favorites→favorites / joined→overview）
+        D->>PS: myStats(userId)（projectCount + voteCount + viewCount + storageBytes）
+        D->>CS: countJoinedByUser(userId)
+        D->>PS: listMine(userId) → 取前 5 条
+        PS->>DB: count + aggregate(_sum vote/view/sizeBytes) + findMany(authorId)
+        D-->>U: DashboardShell（侧栏高亮「概览」）
+        D-->>U: OverviewPanel：欢迎头 + 4 KPI + 存储面板（used/quota/percent）+ 最近作品表
+        D-->>U: MyProjectsPanel（?page=myprojects） / MyVotesPanel（?page=myvotes） / SettingsPanel（?page=settings） / FavoritesPanel（?page=favorites）
+    end
+
+sequenceDiagram
+    autonumber
+    actor U as 登录用户
+    participant S as SettingsPanel (Client)
+    participant R as POST /api/auth/password
+    participant AS as AuthService
+    participant DB as Prisma / SQLite
+    participant AL as writeAudit
+
+    U->>S: 填写 当前密码 + 新密码 + 确认（前端校验 ≥6 与两次一致）
+    S->>R: POST { currentPassword, newPassword }
+    R->>R: requireUser()
+    alt admin 角色
+        R-->>S: 403 FORBIDDEN「演示管理员不支持修改密码」
+    else newPassword 长度 < 6
+        R-->>S: 400 PASSWORD_WEAK「新密码至少 6 位」
+    else 用户有 passwordHash 且 currentPassword 不匹配
+        R->>AS: verifyPassword(currentPassword, stored)
+        AS-->>R: false
+        R-->>S: 400 OLD_PASSWORD_WRONG「当前密码不正确」
+    else 校验通过（无 hash 时 currentPassword 可空跳过）
+        R->>AS: hashPassword(newPassword)
+        R->>DB: UPDATE User SET passwordHash = 新值
+        R->>AL: writeAudit(auth.user.password-changed, targetId=userId)
+        R-->>S: 200 { ok:true, data:{ changed:true } }
+        S->>S: toast「密码已更新」+ router.refresh()
+        Note over S: 会话保持，不强制重新登录
+    end
+
+sequenceDiagram
+    autonumber
+    actor U as 登录用户
+    participant D as /dashboard?page=myvotes (RSC)
+    participant VS as VoteService
+    participant DB as Prisma / SQLite
+
+    U->>D: GET /dashboard?page=myvotes
+    D->>VS: myVotesFull(userId)
+    VS->>DB: vote.findMany(userId, include project+campaign, createdAt desc)  ← 不过滤 valid
+    DB-->>VS: rows（含 valid=false 作废票）
+    D->>VS: votesReceivedByProject(userId)
+    VS->>DB: vote.groupBy(projectId+campaignId, valid=true, project.authorId=userId)
+    DB-->>VS: 聚合行（COUNT(valid) per 作品×活动）
+    D-->>U: MyVotesPanel 双栏：左「我投出的票」（标题/活动|null=全站/时间/作废徽章）· 右「我收到的票」（作品/票数/活动）
+

@@ -1,0 +1,303 @@
+// Kernel · 创意种子 — P0 Prisma Schema（SQLite 本地轻量桩）
+// 设计真源：docs/P0-架构与任务分解.md §3.1
+//
+// ⬆️ Vercel 试验部署（docs/P0-Vercel试验部署设计.md §1.1 / Q2）：
+//   - datasource provider **保持 "sqlite"**（Turso 即 SQLite，表结构零改动）；
+//   - generator 增加 `previewFeatures = ["driverAdapters"]`，允许 `src/lib/prisma.ts`
+//     在 `DATABASE_URL` 以 `libsql:` 开头时传入 `@prisma/adapter-libsql` 的
+//     `PrismaLibSQL` adapter（HTTP 连 Turso）。本地 file: URL 不传 adapter，行为不变。
+//   - 远端 schema 应用：`npm run db:push-remote`（migrate diff → turso db shell）。
+//
+// ⬆️ 切 Postgres 的还原清单：
+//   1) datasource provider 改 "postgresql"，DATABASE_URL 换连接串
+//   2) 恢复 enum Role / Visibility / ProjectStatus / SourceType 块，把对应 String 字段改回 enum
+//      （DB 中已存的就是同名大写字符串，migrate 可平滑转换）
+//   3) sizeBytes / freedBytes 改回 BigInt，并在 lib/response.ts 统一序列化
+//   4) CleanupLog.detail 改回 Json（lib 层 readDetail/writeDetail 封装保证调用点不变）
+//   5) 需要长度约束时加回 @db.VarChar(n) / @db.Text（应用层校验保留作双保险）
+//   6) Vote 按模型注释里的还原点加回 campaignId / weight / valid 等字段与索引
+
+generator client {
+  provider        = "prisma-client-js"
+  // Vercel 试验部署：允许 driver adapter 接入 Turso（libsql）。本地原生引擎不受影响。
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  // 保持 sqlite（Turso 即 SQLite，表结构零改动）。远端经 adapter 走 HTTP，不换 provider。
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// 平台用户。P0 仅有一条 seed 记录 `local-demo-user`，微信登录为 P1。
+model User {
+  id        String   @id @default(cuid())
+  /// P1 用户名密码（展示用）登录凭证；null 表示尚未通过用户名登录过。
+  /// ⬆️ 生产化替换点：接 Auth.js + 微信后，本字段可保留用于站内账号体系，
+  ///    登录主链路改为 unionid / openid，密码不再校验不存储。
+  username  String?  @unique
+  /// P3.5 改密码：scrypt 派生串（`scrypt$N$r$p$saltHex$hashHex`，见 lib/auth.ts）。
+  /// null = 尚未设密码（旧用户 / 展示用登录兼容：无 hash 时任意非空密码可登录，设置页可设密码）。
+  passwordHash String?
+  nickname  String
+  avatarUrl String?
+  /// USER | JUDGE | ADMIN | SUPER_ADMIN —— 取值见 lib/constants.ts ROLE
+  role      String   @default("USER")
+  /// ACTIVE | BANNED
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+
+  projects  Project[]
+  votes     Vote[]
+  auditLogs AuditLog[]
+  /// P1 活动：作者关系（创建活动的管理员）。
+  campaigns Campaign[]
+  /// P3 个人空间：收藏关系（一人一作品一收藏）。
+  favorites Favorite[]
+
+  @@index([status])
+}
+
+/// 作品主体。slug 与磁盘目录 `.kernel-data/projects/{slug}` 1:1 映射。
+model Project {
+  id         String  @id @default(cuid())
+  /// 8 位 Base58 短码，唯一权威由本索引保证
+  slug       String  @unique
+  /// 是否为用户自定义短码（P0 字段保留、UI 不暴露）
+  customSlug Boolean @default(false)
+
+  title       String
+  summary     String?
+  /// Markdown 原文；P0 详情页按纯文本渲染
+  description String?
+  coverUrl    String?
+  /// P0 恒 null，P1 接 OG 图生成
+  ogImageUrl  String?
+
+  /// SINGLE_FILE | ZIP | EXTERNAL_URL
+  sourceType  String
+  externalUrl String?
+  entryFile   String  @default("index.html")
+  fileCount   Int     @default(0)
+  /// BigInt → Int（P0 单作品硬上限 200MB < 2^31）
+  sizeBytes   Int     @default(0)
+
+  /// PUBLIC | UNLISTED | PRIVATE
+  visibility String  @default("PUBLIC")
+  /// P0 恒 null，P1 用于签名访问
+  accessKey  String?
+  /// ACTIVE | ARCHIVED | PURGED | BLOCKED
+  status     String  @default("ACTIVE")
+
+  ttlDays      Int       @default(90)
+  /// = 发布时刻 + ttlDays（自然日 24h）
+  expireAt     DateTime
+  exemptExpire Boolean   @default(false)
+  archivedAt   DateTime?
+  /// = archivedAt + 30 天（回收站）
+  purgeAt      DateTime?
+  pinned       Boolean   @default(false)
+
+  authorAlias String?
+  authorId    String
+  author      User    @relation(fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stats       ProjectStats?
+  cleanupLogs CleanupLog[]
+  votes       Vote[]
+  /// P1 活动：报名关系（多对多，复合主键）。
+  campaigns ProjectCampaign[]
+  /// P3 个人空间：收藏关系（作品被收藏数 / 按作品反查）。
+  favorites Favorite[]
+
+  @@index([visibility, status, createdAt])
+  @@index([expireAt, status])
+  @@index([status, purgeAt])
+  @@index([authorId])
+}
+
+/// 作品统计。P0 只写 viewCount，其余建列占位。
+model ProjectStats {
+  projectId String  @id
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  viewCount     Int       @default(0)
+  voteCount     Int       @default(0)
+  voteInvalid   Int       @default(0)
+  uniqueVisitor Int       @default(0)
+  deepViewCount Int       @default(0)
+  hotScore      Float     @default(0)
+  firstVoteAt   DateTime?
+
+  updatedAt DateTime @updatedAt
+
+  @@index([hotScore])
+  @@index([voteCount])
+}
+
+/// 投票。P1 第一阶段裁剪版，一人一作品一票；P1 活动模块起支持归属活动；
+/// P2 风控模块起携带风控字段（valid/ip/deviceHash/riskScore 等）。
+/// ⬆️ 生产化还原点（docs/03 完整版 Vote）：
+///   weight     Int      @default(1)             —— 评委加权
+///   其余字段已在本轮（P2 风控）落地，见下表。
+model Vote {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  /// 归属活动；null = 全站赞（兼容既有行为）。SQLite 的 UNIQUE 对 NULL 不生效，
+  /// 因此沿用 @@unique([projectId, userId]) 保证「一人一作品一生一票」。
+  campaignId String?
+  /// P2 风控：是否有效；被管理员作废置 false。默认 true 保证存量票零迁移。
+  valid Boolean @default(true)
+  /// P2 风控：管理员作废原因（中文）。
+  invalidReason String?
+  /// P2 风控：服务端从请求头解析的 IP（x-forwarded-for 首值 → x-real-ip → 'unknown'）。
+  ip String?
+  /// P2 风控：前端 UA hash（hex，预留；当前投票上报 deviceHash/dwellMs）。
+  uaHash String?
+  /// P2 风控：前端设备指纹 hash（UA+canvas+salt）。
+  deviceHash String?
+  /// P2 风控：投票前页面停留毫秒（挂载到点击的 Date.now() 差值，原样存储）。
+  dwellMs Int?
+  /// P2 风控：规则引擎评分（0–100，默认 0 保证存量票零迁移）。
+  riskScore Int @default(0)
+  createdAt  DateTime @default(now())
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  /// 一人一作品一票（幂等 upsert 的依据；活动票与全站赞互斥）
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@index([campaignId])
+  /// P2 风控：活动票 COUNT / 活动榜按 valid 过滤（docs/03 索引逐字对齐）。
+  @@index([campaignId, valid])
+  /// P2 风控：同 IP 风险查询 / 审计按 IP 聚合。
+  @@index([ip])
+  /// P2 风控：同设备风险查询 / 审计按设备聚合。
+  @@index([deviceHash])
+}
+
+/// 平台活动（P1 活动模块）。状态机 draft → collecting → voting → ended。
+///
+/// 核心约定（docs/P1-活动模块设计.md §1.3）：
+///   - `status` 只存「管理员设定值」；展示与写操作一律使用
+///     `campaignService.computeStatus(campaign, now)` 的懒计算返回值，
+///     到点自动进投票/结束，无需 cron。
+///   - `draft` 不对公开侧暴露（广场不展示、详情 404）；`ended` 为终态不自动复活。
+model Campaign {
+  id              String   @id @default(cuid())
+  /// 路由标识：小写字母数字连字符，唯一权威由本索引保证
+  slug            String   @unique
+  title           String
+  description     String?
+  coverUrl        String?
+  /// draft | collecting | voting | ended —— 取值见 lib/constants.ts CAMPAIGN_STATUS
+  status          String   @default("draft")
+  /// 作品征集/报名截止（join 要求 now < collectEndAt）
+  collectEndAt    DateTime?
+  /// 投票开始（可空；空视为与 collectEndAt 同刻）
+  voteStartAt     DateTime?
+  /// 投票结束（vote 要求 now < voteEndAt）
+  voteEndAt       DateTime?
+  /// 每人限投票数（同一活动内跨作品累计）
+  maxVotesPerUser Int      @default(3)
+  /// 是否允许给自己投票
+  allowSelfVote   Boolean  @default(true)
+  /// 评委加权（本轮恒 1，字段落库供后续）
+  voteWeight      Int      @default(1)
+  authorId        String
+  author          User     @relation(fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects ProjectCampaign[]
+  votes    Vote[]
+
+  @@index([status, createdAt])
+  @@index([authorId])
+}
+
+/// 活动报名（作品 ↔ 活动 多对多，复合主键，天然去重幂等）。
+model ProjectCampaign {
+  campaignId String
+  projectId  String
+  /// joined | rejected | removed —— 取值见 lib/constants.ts PROJECT_CAMPAIGN_STATUS
+  status     String   @default("joined")
+  /// 报名时间（活动榜同票数时按此排序）
+  joinedAt   DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, projectId])
+  @@index([projectId])
+  @@index([campaignId, status])
+}
+
+/// 收藏（P3 个人空间）。一人一作品最多一条，唯一约束天然去重幂等。
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  /// 一人一作品一收藏（toggle 幂等 + 列表去重的唯一权威）
+  @@unique([userId, projectId])
+  /// 作品被收藏数 / 按作品反查（后续若展示「收藏数」）
+  @@index([projectId])
+}
+
+/// 生命周期任务留痕。detail 由 Json 降级为 String（存 JSON.stringify 结果）。
+model CleanupLog {
+  id      String @id @default(cuid())
+  /// 单次任务运行 id，便于聚合查看
+  batchId String
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  /// archive | purge | tmp-gc | orphan-scan | notify
+  action     String
+  freedBytes Int     @default(0)
+  success    Boolean @default(true)
+  message    String?
+  /// JSON.stringify(...) 后的补充信息
+  detail     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([batchId])
+  @@index([action, createdAt])
+}
+
+/// 管理员操作审计留痕（P2 后台模块）。detail 由 Json 降级为 String（JSON.stringify）。
+/// ⬆️ 切 Postgres 还原清单：meta String? → Json?，其余不变。
+model AuditLog {
+  id      String @id @default(cuid())
+  actorId String
+  actor   User   @relation(fields: [actorId], references: [id])
+  /// 见 lib/constants.ts AUDIT_ACTION：admin.project.block / admin.user.ban / admin.cleanup.run ...
+  action String
+  /// project | user | cleanup
+  targetType String
+  targetId   String
+  /// 简短人类可读说明（中文，面向未来审计页直接展示）
+  detail String?
+  /// JSON.stringify 的结构化快照（before/after/原因/请求体）
+  meta String?
+  ip   String?
+  createdAt DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId])
+  @@index([action, createdAt])
+}
