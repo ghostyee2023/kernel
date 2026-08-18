@@ -527,14 +527,14 @@
   }
 
   /* ----------------------------------------------------------------- Hero */
-  .hero { padding: 64px 0 40px; position: relative; overflow: hidden; z-index: 1; }
+  .hero { padding: 64px 0 40px; position: relative; overflow: hidden; z-index: 1; text-align: center; }
   .hero__eyebrow {
     display: inline-flex; align-items: center; gap: 8px;
     height: 28px; padding: 0 12px; border-radius: var(--radius-pill);
     background: var(--color-primary-soft); color: var(--color-primary);
     font-size: 12px; font-weight: 500; margin-bottom: 20px;
   }
-  .hero__title { font-size: 52px; font-weight: 600; line-height: 1.06; letter-spacing: -2px; max-width: 22em; text-wrap: balance; }
+  .hero__title { font-size: 52px; font-weight: 600; line-height: 1.06; letter-spacing: -2px; max-width: 22em; margin-inline: auto; text-wrap: balance; }
   /* 全站唯一一处渐变文字（DESIGN.md Don'ts #9） */
   .hero__title em {
     font-style: normal;
@@ -552,9 +552,9 @@
   }
   .hero__slogan span { color: var(--color-primary); }
   .hero__slogan i { color: var(--text-tertiary); font-style: normal; letter-spacing: 0; }
-  .hero__actions { margin-top: 28px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .hero__actions { margin-top: 28px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: center; }
   .hero__stats {
-    margin-top: 44px; display: flex; gap: 40px; flex-wrap: wrap;
+    margin-top: 44px; display: flex; gap: 40px; flex-wrap: wrap; justify-content: center;
     padding-top: 28px; border-top: 1px solid var(--border-subtle);
   }
   .stat__num {
