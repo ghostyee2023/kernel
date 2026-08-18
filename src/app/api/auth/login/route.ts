@@ -2,7 +2,8 @@
  * POST /api/auth/login —— 用户名密码登录（展示用 + P3.5 密码兼容）。
  *
  * 规则（已拍板，对齐原型语义 + P3.5 §1.6 / §7.3）：
- *   - `admin` / `123456` → 管理员（role=ADMIN，硬编码分支不设 hash，**不动**）；
+ *   - `admin` → 管理员（role=ADMIN；密码走 DB passwordHash：设过密码必须校验，
+ *     无 hash 时兼容旧演示「任意非空密码」，2026-08-18 去掉硬编码 123456）；
  *   - 普通用户三分支：
  *       ① 已封禁（BANNED）→ 403（现状保留）；
  *       ② 存在 + 有 passwordHash → 校验密码：错误 400 `PASSWORD_WRONG`「用户名或密码错误」；
@@ -37,6 +38,13 @@ export interface AuthUser {
 /** 按用户名 upsert 用户并返回对外信息（P3.5 三分支，见文件头注释）。 */
 async function upsertUserByUsername(username: string, password: string, isAdmin: boolean): Promise<AuthUser> {
   if (isAdmin) {
+    // admin：密码走 DB hash（设过密码必须校验；无 hash 时兼容旧演示「任意非空密码」）。
+    const existing = await prisma.user.findUnique({ where: { username: 'admin' } });
+    if (existing?.passwordHash) {
+      if (!verifyPassword(password, existing.passwordHash)) {
+        throw new AppError(ERROR_CODE.PASSWORD_WRONG, '用户名或密码错误');
+      }
+    }
     const row = await prisma.user.upsert({
       where: { username: 'admin' },
       update: { nickname: '管理员', role: ROLE.ADMIN, status: USER_STATUS.ACTIVE },
@@ -101,11 +109,7 @@ export async function POST(request: NextRequest) {
     }
 
     const isAdmin = username === 'admin';
-    if (isAdmin && password !== '123456') {
-      // 对齐原型 auth-err 语义
-      throw new AppError(ERROR_CODE.VALIDATION_FAILED, '用户名或密码错误');
-    }
-
+    // admin 密码不再硬编码：由 DB passwordHash 管理（见 upsertUserByUsername）
     const user = await upsertUserByUsername(username, password, isAdmin);
     const token = createSessionToken({ id: user.id, username: user.username, role: user.role });
 
