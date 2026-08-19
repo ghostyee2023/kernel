@@ -152,8 +152,6 @@ export default async function PlazaPage({ searchParams }: PageProps) {
           q={q}
           sort={sort}
           total={result.total}
-          campaigns={selectable.map((item) => ({ slug: item.slug, title: item.title }))}
-          campaign={campaign}
           tags={tags.map((item) => ({ slug: item.slug, name: item.name }))}
           tag={tag}
         />

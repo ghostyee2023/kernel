@@ -2796,3 +2796,55 @@
 .admin-tag-project__info { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .admin-tag-project__info .admin-table__title { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .admin-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+
+/* ============================================================================
+   详情页 banner（顶部截图轮播）+ 区域去 border
+   ========================================================================== */
+
+/* 详情页 main 区不再用各 section 的边框 */
+.detail__main > .detail__desc,
+.detail__main > .detail__shots,
+.detail__main > .detail__external { border: none; padding: 0; background: transparent; }
+
+/* Banner 轮播 */
+.banner {
+  position: relative; border-radius: 14px; overflow: hidden;
+  background: linear-gradient(180deg, #0e1118 0%, #161922 100%);
+  aspect-ratio: 16 / 9; min-height: 260px;
+}
+.banner__stage {
+  display: block; width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+.banner__stage img {
+  width: 100%; height: 100%; object-fit: contain; display: block;
+  transition: opacity .25s ease;
+}
+.banner__nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 40px; height: 40px; border: none; border-radius: 50%;
+  background: rgba(255,255,255,0.18); color: #fff; font-size: 22px; line-height: 1;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  backdrop-filter: blur(8px); transition: background .18s ease;
+}
+.banner__nav:hover { background: rgba(255,255,255,0.32); }
+.banner__nav--prev { left: 12px; }
+.banner__nav--next { right: 12px; }
+.banner__dots {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+  display: flex; gap: 8px; padding: 0; margin: 0; list-style: none;
+}
+.banner__dot {
+  width: 8px; height: 8px; border-radius: 50%; border: none;
+  background: rgba(255,255,255,0.35); cursor: pointer; padding: 0; transition: background .18s ease;
+}
+.banner__dot[aria-selected="true"] { background: #fff; width: 22px; border-radius: 99px; }
+.banner__count {
+  position: absolute; right: 14px; top: 12px;
+  font-size: 11px; line-height: 1; padding: 4px 8px; border-radius: 99px;
+  background: rgba(0,0,0,0.45); color: #fff;
+}
+
+/* 简介段（无 border） */
+.detail__desc h2 { font-size: 16px; margin-bottom: 6px; }
+.detail__desc p { color: var(--text-secondary); line-height: 1.75; }

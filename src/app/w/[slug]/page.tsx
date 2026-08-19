@@ -19,6 +19,7 @@ import {
   ShareCard,
   VoteHero,
 } from '@/components/project';
+import { ScreenshotBanner } from '@/components/project/ScreenshotBanner';
 import { Avatar, Badge } from '@/components/ui';
 import { canManageProject, getSession } from '@/lib/auth';
 import * as campaignService from '@/lib/campaign-service';
@@ -161,7 +162,10 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
       <div className="detail">
         <section className="detail__main" aria-label="作品预览">
-          {isExternal ? (
+          {/* 顶部 banner：多图截图轮播 / 外链提示 / 沙箱预览 */}
+          {project.screenshots.length > 0 ? (
+            <ScreenshotBanner screenshots={project.screenshots} title={project.title} />
+          ) : isExternal ? (
             <div className="detail__external">
               <h2 className="t-title">这是一件外链作品</h2>
               <p className="muted">
@@ -183,25 +187,12 @@ export default async function ProjectDetailPage({ params }: PageProps) {
             <PreviewFrame src={targetUrl} displayUrl={displayShortLink(slug)} title={project.title} />
           )}
 
+          {/* 作品介绍（紧跟 banner，无边框） */}
           {project.description ? (
             <div className="detail__desc">
               <h2 className="t-title">作品介绍</h2>
               {/* P0 按纯文本渲染，不解析 Markdown —— 避免引入 XSS 面 */}
               <p className="prewrap">{project.description}</p>
-            </div>
-          ) : null}
-
-          {project.screenshots.length > 0 ? (
-            <div className="detail__shots">
-              <h2 className="t-title">作品截图</h2>
-              <div className="shot-gallery">
-                {project.screenshots.map((file, index) => (
-                  <a key={file} href={`/api/screenshots/${file}`} target="_blank" rel="noopener noreferrer" className="shot-gallery__item">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`/api/screenshots/${file}`} alt={`${project.title} 截图 ${index + 1}`} loading="lazy" decoding="async" />
-                  </a>
-                ))}
-              </div>
             </div>
           ) : null}
         </section>

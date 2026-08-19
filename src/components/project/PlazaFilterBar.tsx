@@ -1,26 +1,20 @@
 'use client';
 
 /**
- * 广场筛选条：排序切换 + 关键词搜索 + 活动筛选（P1 活动模块）。
+ * 广场筛选条：排序切换 + 关键词搜索 + 标签 chips 一行（活动也是标签，合并展示）。
  *
- * 状态放在 URL（`?q=&sort=&campaign=`）而不是组件里 —— 刷新、分享、后退都能还原现场，
+ * 状态放在 URL（`?q=&sort=&tag=`）而不是组件里 —— 刷新、分享、后退都能还原现场，
  * 服务端也能直接按 searchParams 渲染，不需要额外的客户端数据请求。
  *
  * P1：`票数` 排序已激活（`?sort=votes`，按 ProjectStats.voteCount 倒序）；
  * `最热` 需要真实热度分（hotScore 重算），仍明确置灰而不是假装能用。
  *
- * 活动筛选：选项来自 `campaignService.listSelectable()`（effective voting/ended，
- * §八 Q7），选择写回 `?campaign=slug`，与 q/sort/page 共存。
+ * 标签 chips：选项来自 `tagService.listPublicTags()`（含活动标签），
+ * 写入 `?tag=slug` 与 q/sort/page 共存。活动不再单独展示为下拉。
  */
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-
-/** 可筛活动选项。 */
-export interface CampaignFilterOption {
-  slug: string;
-  title: string;
-}
 
 /** 可筛标签选项。 */
 export interface TagFilterOption {
@@ -36,11 +30,7 @@ export interface PlazaFilterBarProps {
   sort?: 'new' | 'votes';
   /** 命中总数，用于右侧计数。 */
   total: number;
-  /** 可筛活动（effective voting/ended）。 */
-  campaigns?: CampaignFilterOption[];
-  /** 当前选中的活动 slug（来自 URL）。 */
-  campaign?: string;
-  /** 可筛标签（后台预置 + 活动标签）。 */
+  /** 可筛标签（后台预置 + 活动标签统一展示）。 */
   tags?: TagFilterOption[];
   /** 当前选中的标签 slug（来自 URL）。 */
   tag?: string;
@@ -51,8 +41,6 @@ export function PlazaFilterBar({
   q = '',
   sort = 'new',
   total,
-  campaigns = [],
-  campaign = '',
   tags = [],
   tag = '',
 }: PlazaFilterBarProps) {
@@ -66,7 +54,7 @@ export function PlazaFilterBar({
   }, [q]);
 
   /**
-   * 切换排序：写回 URL（保留 q + campaign），翻页重置到第一页。
+   * 切换排序：写回 URL（保留 q + tag），翻页重置到第一页。
    * `new` 是默认值，从 URL 中移除以保持链接干净。
    */
   const changeSort = (next: 'new' | 'votes'): void => {
@@ -92,22 +80,11 @@ export function PlazaFilterBar({
     router.push(query === '' ? '/' : `/?${query}`);
   };
 
-  /** 切换活动筛选：写回 URL，翻页重置到第一页。 */
-  const changeCampaign = (next: string): void => {
+  /** 切换标签筛选（点同一项再点 = 取消选中）；翻页重置到第一页。 */
+  const toggleTag = (slug: string): void => {
     const params = new URLSearchParams(searchParams.toString());
-    if (next === '') params.delete('campaign');
-    else params.set('campaign', next);
-    params.delete('page');
-
-    const query = params.toString();
-    router.push(query === '' ? '/' : `/?${query}`);
-  };
-
-  /** 切换标签筛选：写回 URL，翻页重置到第一页。 */
-  const changeTag = (next: string): void => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (next === '') params.delete('tag');
-    else params.set('tag', next);
+    if (tag === slug) params.delete('tag');
+    else params.set('tag', slug);
     params.delete('page');
 
     const query = params.toString();
@@ -129,42 +106,29 @@ export function PlazaFilterBar({
           </button>
         </div>
 
-        {campaigns.length > 0 ? (
-          <>
-            <span className="divider-v" aria-hidden="true" />
-            <select
-              className="select filterbar__campaign"
-              aria-label="按活动筛选"
-              value={campaign}
-              onChange={(event) => changeCampaign(event.target.value)}
-            >
-              <option value="">全部活动</option>
-              {campaigns.map((item) => (
-                <option key={item.slug} value={item.slug}>
-                  {item.title}
-                </option>
-              ))}
-            </select>
-          </>
-        ) : null}
-
         {tags.length > 0 ? (
-          <>
-            <span className="divider-v" aria-hidden="true" />
-            <select
-              className="select filterbar__campaign"
-              aria-label="按标签筛选"
-              value={tag}
-              onChange={(event) => changeTag(event.target.value)}
+          <div className="chips filterbar__tags" role="group" aria-label="按标签筛选">
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={tag === ''}
+              onClick={() => toggleTag('')}
             >
-              <option value="">全部标签</option>
-              {tags.map((item) => (
-                <option key={item.slug} value={item.slug}>
-                  #{item.name}
-                </option>
-              ))}
-            </select>
-          </>
+              全部
+            </button>
+            {tags.map((item) => (
+              <button
+                key={item.slug}
+                type="button"
+                className="chip"
+                aria-pressed={tag === item.slug}
+                onClick={() => toggleTag(item.slug)}
+                title={`按「${item.name}」筛选`}
+              >
+                {item.name}
+              </button>
+            ))}
+          </div>
         ) : null}
 
         <span className="t-body-sm muted">
