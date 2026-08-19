@@ -179,6 +179,17 @@ const CARD_COUNT = {
   },
 } as const;
 
+/** 解析 screenshots JSON 列；非法/空时返回空数组。 */
+function parseScreenshots(raw: string): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string' && x.length > 0) : [];
+  } catch {
+    return [];
+  }
+}
+
 /** 把作品行转为精简卡片 DTO（活动网格 / 活动榜用）。 */
 function toProjectLite(project: {
   id: string;
@@ -186,6 +197,7 @@ function toProjectLite(project: {
   title: string;
   summary: string | null;
   coverUrl: string | null;
+  screenshots: string;
   authorAlias: string | null;
   authorId: string;
   author: { nickname: string } | null;
@@ -197,6 +209,7 @@ function toProjectLite(project: {
     title: project.title,
     summary: project.summary,
     coverUrl: project.coverUrl,
+    screenshots: parseScreenshots(project.screenshots),
     authorName: project.authorAlias ?? project.author?.nickname ?? '匿名创作者',
     authorId: project.authorId,
     detailUrl: buildDetailUrl(project.slug),

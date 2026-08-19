@@ -2711,3 +2711,34 @@
   .set-grid { grid-template-columns: 1fr; gap: 4px; padding: 10px 0; }
   .storage-meta { flex-direction: column; align-items: flex-start; gap: 2px; }
 }
+
+/* ============================================================================
+   作品截图（ScreenshotUploader + ImageCropper + 详情画廊）
+   ========================================================================== */
+
+.shot-uploader { display: flex; flex-direction: column; gap: 12px; }
+.shot-uploader__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 10px; }
+.shot-uploader__item { position: relative; aspect-ratio: 4 / 3; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); background: var(--gray-50); }
+.shot-uploader__item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.shot-uploader__cover { position: absolute; left: 6px; top: 6px; font-size: 11px; line-height: 1; padding: 3px 7px; border-radius: 99px; background: var(--color-primary); color: var(--color-on-primary); }
+.shot-uploader__del { position: absolute; right: 5px; top: 5px; width: 22px; height: 22px; border-radius: 50%; border: none; cursor: pointer; background: rgba(0,0,0,0.62); color: #fff; font-size: 15px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+.shot-uploader__del:hover { background: var(--color-danger); }
+
+/* 裁剪弹层 */
+.cropper-modal { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.62); padding: 20px; }
+.cropper-modal__panel { width: min(700px, 94vw); background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; box-shadow: 0 18px 50px rgba(0,0,0,0.4); }
+.cropper { display: flex; flex-direction: column; gap: 12px; }
+.cropper__stage { position: relative; border-radius: 10px; overflow: hidden; background: #0f1115; }
+.cropper__canvas { display: block; width: 100%; height: auto; cursor: move; }
+.cropper__hint { position: absolute; left: 10px; bottom: 8px; font-size: 11px; color: rgba(255,255,255,0.72); pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+.cropper__bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cropper__ratios { display: flex; gap: 6px; }
+.cropper__zoom { display: flex; gap: 6px; }
+.cropper__actions { margin-left: auto; display: flex; gap: 8px; }
+
+/* 详情页截图画廊 */
+.detail__shots { margin-top: 28px; }
+.shot-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 12px; }
+.shot-gallery__item { display: block; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: var(--gray-50); transition: transform .18s ease, border-color .18s ease; }
+.shot-gallery__item:hover { transform: translateY(-2px); border-color: var(--border-strong); }
+.shot-gallery__item img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; }

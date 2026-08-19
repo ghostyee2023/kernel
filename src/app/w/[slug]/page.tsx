@@ -172,6 +172,20 @@ export default async function ProjectDetailPage({ params }: PageProps) {
               <p className="prewrap">{project.description}</p>
             </div>
           ) : null}
+
+          {project.screenshots.length > 0 ? (
+            <div className="detail__shots">
+              <h2 className="t-title">作品截图</h2>
+              <div className="shot-gallery">
+                {project.screenshots.map((file, index) => (
+                  <a key={file} href={`/api/screenshots/${file}`} target="_blank" rel="noopener noreferrer" className="shot-gallery__item">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`/api/screenshots/${file}`} alt={`${project.title} 截图 ${index + 1}`} loading="lazy" decoding="async" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <aside className="detail__side" aria-label="作品信息与操作">

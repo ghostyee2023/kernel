@@ -104,6 +104,21 @@ export function coversRoot(): string {
   return path.join(dataRoot(), 'covers');
 }
 
+/** `screenshots/` 根目录（本地模式）。 */
+export function screenshotsRoot(): string {
+  return path.join(dataRoot(), 'screenshots');
+}
+
+/** 截图 Blob pathname（云模式）。 */
+export function screenshotBlobPath(file: string): string {
+  return `screenshots/${file}`;
+}
+
+/** 截图本地绝对路径。 */
+export function screenshotFilePath(file: string): string {
+  return path.join(screenshotsRoot(), file);
+}
+
 /** slug 是否为安全的单段目录名（防止 `../` 或分隔符注入）。 */
 function isSafeSegment(segment: string): boolean {
   return /^[A-Za-z0-9_-]{1,64}$/.test(segment);

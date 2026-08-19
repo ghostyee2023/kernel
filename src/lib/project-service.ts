@@ -92,8 +92,27 @@ interface ProjectRow {
   authorId: string;
   createdAt: Date;
   updatedAt: Date;
+  screenshots: string;
   author: { nickname: string } | null;
   stats: { viewCount: number; voteCount: number } | null;
+}
+
+/** 解析 screenshots JSON 列；非法/空时返回空数组。 */
+function parseScreenshots(raw: string): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string' && x.length > 0) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** 序列化截图文件名数组为 JSON 列值；非法输入归一为空数组。 */
+function stringifyScreenshots(value: string[] | undefined): string {
+  if (!value) return '[]';
+  const cleaned = value.filter((x) => typeof x === 'string' && x.length > 0);
+  return JSON.stringify(cleaned.slice(0, 9));
 }
 
 /**
@@ -127,6 +146,7 @@ export function toDTO(row: ProjectRow, favoriteCount = 0): ProjectDTO {
     viewCount: row.stats?.viewCount ?? 0,
     voteCount: row.stats?.voteCount ?? 0,
     favoriteCount,
+    screenshots: parseScreenshots(row.screenshots),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     sandboxUrl: buildSandboxUrl(row.slug),
@@ -297,6 +317,7 @@ export async function create(input: CreateProjectInput): Promise<CreateProjectRe
         expireAt,
         authorAlias,
         authorId,
+        screenshots: stringifyScreenshots(input.screenshots),
         stats: { create: {} },
       },
       select: { slug: true },
@@ -366,6 +387,7 @@ export async function create(input: CreateProjectInput): Promise<CreateProjectRe
         expireAt,
         authorAlias,
         authorId,
+        screenshots: stringifyScreenshots(input.screenshots),
         stats: { create: {} },
       },
       select: { id: true },
@@ -691,6 +713,9 @@ export async function patch(slug: string, input: PatchProjectInput): Promise<Pro
   }
   if (input.visibility !== undefined) {
     data.visibility = normalizeVisibility(input.visibility);
+  }
+  if (input.screenshots !== undefined) {
+    data.screenshots = stringifyScreenshots(input.screenshots);
   }
 
   if (Object.keys(data).length === 0) {

@@ -50,6 +50,8 @@ export interface ProjectDTO {
   voteCount: number;
   /** P3 补：收藏数（Favorite 表实时 count；列表/详情按需填充）。 */
   favoriteCount: number;
+  /** 作品截图访问路径数组（相对 /api/screenshots/；空数组 = 未上传）。 */
+  screenshots: string[];
   /** ISO 8601 UTC */
   createdAt: string;
   /** ISO 8601 UTC */
@@ -103,6 +105,8 @@ export interface CreateProjectInput {
    * 缺省时回落本地演示用户（`ensureLocalUser()`，P0 无登录兼容路径）。
    */
   authorId?: string;
+  /** 作品截图文件名数组（/api/screenshots/ 下的文件名）。 */
+  screenshots?: string[];
 }
 
 /** 创建作品出参。 */
@@ -123,6 +127,8 @@ export interface PatchProjectInput {
   description?: string | null;
   visibility?: Visibility;
   authorAlias?: string | null;
+  /** 作品截图文件名数组（/api/screenshots/ 下的文件名；空数组 = 清空）。 */
+  screenshots?: string[];
 }
 
 /* ============================================================================
@@ -361,6 +367,8 @@ export interface ProjectCardLite {
   title: string;
   summary: string | null;
   coverUrl: string | null;
+  /** 作品截图文件名数组（有截图时第一张作封面）。 */
+  screenshots: string[];
   authorName: string;
   /** 作者用户 id（前端用于自投开关 / 报名归属判断）。 */
   authorId: string;

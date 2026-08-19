@@ -72,7 +72,7 @@ export function ProjectCard({
         className="card__link"
         aria-label={`查看作品 ${project.title}`}
       >
-        <CoverPlaceholder slug={project.slug} title={project.title} coverUrl={project.coverUrl} />
+        <CoverPlaceholder slug={project.slug} title={project.title} coverUrl={project.coverUrl} screenshots={project.screenshots} />
 
         <div className="card__body">
           <h3 className="card__title">{project.title}</h3>

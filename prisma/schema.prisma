@@ -104,6 +104,9 @@ model Project {
   authorId    String
   author      User    @relation(fields: [authorId], references: [id])
 
+  /// 作品截图（JSON 数组：["f1.jpg","f2.jpg"]；"[]" = 未上传截图）
+  screenshots String @default("[]")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

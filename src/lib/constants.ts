@@ -266,6 +266,20 @@ export const MAX_ZIP_ENTRIES: number = envInt('MAX_ZIP_ENTRIES', 2000);
 /** ZIP 解压比上限（解压后 / 压缩包体积）。 */
 export const MAX_ZIP_RATIO: number = envInt('MAX_ZIP_RATIO', 100);
 
+/** 单张作品截图上限（字节）。 */
+export const MAX_SCREENSHOT_BYTES: number = envInt('MAX_SCREENSHOT_MB', 5) * BYTES_PER_MB;
+
+/** 作品截图最多张数。 */
+export const MAX_SCREENSHOTS = 9;
+
+/** 截图允许的真实图片类型（magic number 识别，见 detectImageType）。 */
+export const SCREENSHOT_EXT_BY_TYPE: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+} as const;
+
 /** ZIP 单条目解压后体积上限（字节）。 */
 export const MAX_ZIP_ENTRY_BYTES: number = 50 * BYTES_PER_MB;
 

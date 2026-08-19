@@ -16,12 +16,15 @@ export interface CoverPlaceholderProps {
   title: string;
   /** 服务端下发的封面地址；缺省时按约定拼接。 */
   coverUrl?: string | null;
+  /** 作品截图文件名数组（有截图时第一张优先作封面）。 */
+  screenshots?: string[];
   className?: string;
 }
 
-/** 渲染作品封面。 */
-export function CoverPlaceholder({ slug, title, coverUrl, className }: CoverPlaceholderProps) {
-  const src = coverUrl && coverUrl.trim() !== '' ? coverUrl : `/api/covers/${slug}.svg`;
+/** 渲染作品封面（截图优先，回落 SVG 占位）。 */
+export function CoverPlaceholder({ slug, title, coverUrl, screenshots, className }: CoverPlaceholderProps) {
+  const shot = screenshots && screenshots.length > 0 ? screenshots[0] : null;
+  const src = shot ? `/api/screenshots/${shot}` : coverUrl && coverUrl.trim() !== '' ? coverUrl : `/api/covers/${slug}.svg`;
 
   return (
     <div className={cn('card__thumbwrap', className)}>

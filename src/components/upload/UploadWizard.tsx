@@ -133,6 +133,7 @@ export function UploadWizard() {
           visibility: form.visibility,
           ttlDays: form.ttlDays,
           entryFile: form.entryFile || undefined,
+          screenshots: form.screenshots.length > 0 ? form.screenshots : undefined,
         });
         setResult(created);
         setPublishedTitle(form.title);

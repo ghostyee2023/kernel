@@ -21,6 +21,8 @@ import {
 } from '@/lib/constants';
 import type { FileNode, ValidatedUpload } from '@/lib/types';
 
+import { ScreenshotUploader } from './ScreenshotUploader';
+
 /** 表单值。 */
 export interface PublishFormValue {
   title: string;
@@ -30,6 +32,8 @@ export interface PublishFormValue {
   visibility: Visibility;
   ttlDays: number;
   entryFile: string;
+  /** 作品截图文件名数组。 */
+  screenshots: string[];
 }
 
 /** 组件属性。 */
@@ -85,6 +89,7 @@ export function PublishForm({
     visibility: 'PUBLIC',
     ttlDays: DEFAULT_TTL_DAYS,
     entryFile: validated?.entryFileSuggested ?? '',
+    screenshots: [],
   });
   const [touched, setTouched] = useState<boolean>(false);
 
@@ -141,6 +146,10 @@ export function PublishForm({
           placeholder="创作思路、技术栈、使用说明…"
           onChange={(event) => update('description', event.target.value)}
         />
+      </Field>
+
+      <Field label="作品截图" hint="选填，最多 9 张；可裁剪，第一张作为封面">
+        <ScreenshotUploader value={value.screenshots} onChange={(next) => update('screenshots', next)} />
       </Field>
 
       <Field label="作者署名" htmlFor="pf-alias" hint={`选填，留空则显示为「本地创作者」，最多 ${MAX_AUTHOR_ALIAS_LEN} 字`}>
