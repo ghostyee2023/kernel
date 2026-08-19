@@ -860,13 +860,31 @@
 
   .radio-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .radio-card {
+    display: flex; align-items: flex-start; gap: 10px;
     border: 1px solid var(--border-default); border-radius: 10px; padding: 12px;
     text-align: left; background: var(--surface-canvas); transition: all .18s var(--ease);
+    cursor: pointer;
   }
   .radio-card:hover { border-color: var(--border-strong); }
-  .radio-card[aria-pressed="true"] { border-color: var(--color-primary); background: var(--color-primary-soft); }
+  /* ⚠️ 选中态选择器：RadioCard 用 role=radio + aria-checked（此前误写成 aria-pressed，样式一直没生效） */
+  .radio-card[aria-checked="true"] {
+    border-color: var(--color-primary); background: var(--color-primary-soft);
+    box-shadow: 0 0 0 1px var(--color-primary) inset;
+  }
+  .radio-card[aria-checked="true"] strong { color: var(--color-primary); }
   .radio-card:disabled { opacity: .55; cursor: not-allowed; }
-  .radio-card strong { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .radio-card__dot {
+    flex: none; width: 16px; height: 16px; margin-top: 1px; border-radius: 50%;
+    border: 2px solid var(--border-strong); background: transparent;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: all .18s var(--ease);
+  }
+  .radio-card[aria-checked="true"] .radio-card__dot {
+    border-color: var(--color-primary); background: var(--color-primary);
+    box-shadow: inset 0 0 0 3px var(--surface-canvas);
+  }
+  .radio-card__body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .radio-card strong { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
   .radio-card small { font-size: 11.5px; color: var(--text-tertiary); line-height: 1.4; display: block; }
 
   .chips { display: flex; gap: 6px; flex-wrap: wrap; }

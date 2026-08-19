@@ -91,8 +91,11 @@ export function RadioCard({
 }: RadioCardProps): React.JSX.Element {
   return (
     <button type={type} role="radio" aria-checked={active} className={cn('radio-card', className)} {...rest}>
-      <strong style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{title}</strong>
-      {desc ? <span style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5 }}>{desc}</span> : null}
+      <span className="radio-card__dot" aria-hidden="true" />
+      <span className="radio-card__body">
+        <strong>{title}</strong>
+        {desc ? <small>{desc}</small> : null}
+      </span>
     </button>
   );
 }
