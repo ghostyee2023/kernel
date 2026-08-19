@@ -55,10 +55,10 @@ async function exec(sql) {
   return first.response?.result?.rows ?? [];
 }
 
-/** 查表全部列名。 */
+/** 查表全部列名（pragma_table_info 表值函数，libsql HTTP 下兼容性优于 PRAGMA 语句）。 */
 async function columns(table) {
-  const rows = await exec('PRAGMA table_info(' + table + ')');
-  return rows.map((r) => r[1]);
+  const rows = await exec("SELECT name FROM pragma_table_info('" + table + "')");
+  return rows.map((r) => r[0]);
 }
 
 /** 目标增量（只增不改不删；默认值与 Prisma schema 一致）。 */
@@ -70,8 +70,10 @@ const ALTERS = [
 ];
 
 let added = 0;
-try {
-  for (const a of ALTERS) {
+let failed = 0;
+// 逐列独立容错：单列失败只告警，不中断后续列（避免「一列误判阻断全表」）
+for (const a of ALTERS) {
+  try {
     const cols = await columns(a.table);
     if (cols.includes(a.col)) {
       console.log('[db-sync-remote] =', a.table + '.' + a.col, '已存在');
@@ -80,10 +82,9 @@ try {
       console.log('[db-sync-remote] +', a.table + '.' + a.col);
       added++;
     }
+  } catch (err) {
+    failed++;
+    console.warn(`[db-sync-remote] 跳过 ${a.table}.${a.col}:`, err.message);
   }
-  console.log(`[db-sync-remote] schema 同步完成（新增 ${added} 列）`);
-} catch (err) {
-  // schema 同步失败不阻断部署（Prisma 运行时会自行报缺列，便于定位）
-  console.error('[db-sync-remote] 同步失败（不阻断构建）:', err.message);
-  process.exit(0);
 }
+console.log(`[db-sync-remote] schema 同步完成（新增 ${added} 列，跳过 ${failed} 列）`);
