@@ -14,6 +14,7 @@ import type {
   ApiEnvelope,
   CreateProjectInput,
   CreateProjectResult,
+  PatchProjectInput,
   ProjectDTO,
   UploadChunkResult,
   UploadInitResult,
@@ -149,8 +150,17 @@ export async function createProject(input: CreateProjectInput): Promise<CreatePr
   return unwrap<CreateProjectResult>(response);
 }
 
-/** 拉取作品列表（客户端筛选/翻页时使用）。 */
-export async function fetchProjects(params: {
+/** 编辑作品（作者或管理员；PATCH /api/projects/:slug）。 */
+export async function patchProject(slug: string, input: PatchProjectInput): Promise<ProjectDTO> {
+  const response = await fetch(`/api/projects/${encodeURIComponent(slug)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  return unwrap<ProjectDTO>(response);
+}
+
+/** 拉取作品列表（客户端筛选/翻页时使用）。 */export async function fetchProjects(params: {
   q?: string;
   page?: number;
   pageSize?: number;

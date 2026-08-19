@@ -1114,6 +1114,7 @@
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     font-size: 13px; color: var(--text-tertiary);
   }
+  .detail__actions { display: flex; align-items: center; gap: 8px; }
   /* P1 活动模块：作品详情页所属活动 badge */
   .detail__campaigns { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .detail__campaigns a { display: inline-flex; }

@@ -20,7 +20,7 @@ import {
   VoteHero,
 } from '@/components/project';
 import { Avatar, Badge } from '@/components/ui';
-import { getSession } from '@/lib/auth';
+import { canManageProject, getSession } from '@/lib/auth';
 import * as campaignService from '@/lib/campaign-service';
 import { PROJECT_STATUS, SITE_URL } from '@/lib/constants';
 import * as favoriteService from '@/lib/favorite-service';
@@ -139,6 +139,15 @@ export default async function ProjectDetailPage({ params }: PageProps) {
             </span>
           ) : null}
         </div>
+
+        {/* 作者 / 管理员可编辑作品（P3 补：编辑入口） */}
+        {canManageProject(session, project) ? (
+          <div className="detail__actions">
+            <Link className="btn btn-ghost btn-sm" href={`/w/${project.slug}/edit`}>
+              编辑作品
+            </Link>
+          </div>
+        ) : null}
       </header>
 
       <div className="detail">
