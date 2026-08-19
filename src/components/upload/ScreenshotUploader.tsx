@@ -54,17 +54,44 @@ export function ScreenshotUploader({ value, onChange }: ScreenshotUploaderProps)
 
   const full = value.length >= MAX_SCREENSHOTS;
 
-  /** 选择本地图片 → 进入裁剪。 */
-  function pickFile(event: React.ChangeEvent<HTMLInputElement>): void {
-    const picked = event.target.files?.[0];
-    event.target.value = '';
-    if (!picked) return;
+  /** 校验并进入裁剪（选文件与 Ctrl+V 粘贴共用）。 */
+  function startCrop(picked: File): void {
     if (!/^image\/(jpeg|png|webp|gif)$/i.test(picked.type)) {
       toast('仅支持 JPG / PNG / WebP / GIF 图片', 'danger');
       return;
     }
     setCropperFile(picked);
   }
+
+  /** 选择本地图片 → 进入裁剪。 */
+  function pickFile(event: React.ChangeEvent<HTMLInputElement>): void {
+    const picked = event.target.files?.[0];
+    event.target.value = '';
+    if (!picked) return;
+    startCrop(picked);
+  }
+
+  /** Ctrl+V 剪贴板粘贴检测：命中剪贴板图片 → 直接进入裁剪（正在裁剪时替换当前图）。 */
+  React.useEffect(() => {
+    function onPaste(event: ClipboardEvent): void {
+      const items = event.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.kind === 'file' && item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            event.preventDefault();
+            startCrop(file);
+            toast('已检测到剪贴板图片，可直接裁剪', 'success');
+            return;
+          }
+        }
+      }
+    }
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** 裁剪确认 → 上传 → 入列。 */
   async function confirmCrop(blob: Blob): Promise<void> {
@@ -118,7 +145,7 @@ export function ScreenshotUploader({ value, onChange }: ScreenshotUploaderProps)
           ))}
         </div>
       ) : (
-        <p className="hint">还没有截图。上传后第一张会作为作品封面展示。</p>
+        <p className="hint">还没有截图。上传后第一张会作为作品封面展示。支持 Ctrl+V 直接粘贴剪贴板截图。</p>
       )}
 
       <button
@@ -127,7 +154,7 @@ export function ScreenshotUploader({ value, onChange }: ScreenshotUploaderProps)
         disabled={full || uploading}
         onClick={() => inputRef.current?.click()}
       >
-        {uploading ? '上传中…' : full ? `最多 ${MAX_SCREENSHOTS} 张` : '+ 添加截图'}
+        {uploading ? '上传中…' : full ? `最多 ${MAX_SCREENSHOTS} 张` : '+ 添加截图（或 Ctrl+V 粘贴）'}
       </button>
 
       {cropperFile ? (

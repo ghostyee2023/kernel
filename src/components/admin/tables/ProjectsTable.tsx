@@ -12,6 +12,7 @@
 
 import * as React from 'react';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
@@ -323,6 +324,9 @@ export function ProjectsTable({
                     </Td>
                     <Td className="admin-table__actions">
                       <div className="admin-row-actions">
+                        <Link className="btn btn-sm" href={`/w/${row.slug}/edit`} title="编辑作品信息与截图">
+                          编辑
+                        </Link>
                         {row.status === 'BLOCKED' ? (
                           <Button
                             size="sm"
