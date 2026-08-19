@@ -38,6 +38,7 @@ import { buildCoverSvg } from './cover';
 import { computeExpireAt, MS_PER_DAY } from './format';
 import { prisma } from './prisma';
 import { AppError, ERROR_CODE } from './response';
+import { setProjectTags } from './tag-service';
 import { buildDetailUrl, buildSandboxUrl } from './sandbox';
 import { generateUnique } from './slug';
 import {
@@ -66,7 +67,11 @@ import { assertPublicHttpUrl } from './upload/validate';
    ========================================================================== */
 
 /** prisma 查询时统一带上的关联，保证 DTO 字段齐全。 */
-const PROJECT_INCLUDE = { author: true, stats: true } as const;
+const PROJECT_INCLUDE = {
+  author: true,
+  stats: true,
+  tags: { include: { tag: true }, orderBy: { tag: { sortOrder: 'asc' as const } } },
+} as const;
 
 /** 与 `PROJECT_INCLUDE` 对应的最小结构化行类型（避免依赖生成态 Prisma 类型）。 */
 interface ProjectRow {
@@ -95,6 +100,7 @@ interface ProjectRow {
   screenshots: string;
   author: { nickname: string } | null;
   stats: { viewCount: number; voteCount: number } | null;
+  tags: Array<{ tag: { id: string; name: string; slug: string; kind: string; createdAt: Date } }>;
 }
 
 /** 解析 screenshots JSON 列；非法/空时返回空数组。 */
@@ -147,6 +153,13 @@ export function toDTO(row: ProjectRow, favoriteCount = 0): ProjectDTO {
     voteCount: row.stats?.voteCount ?? 0,
     favoriteCount,
     screenshots: parseScreenshots(row.screenshots),
+    tags: (row.tags ?? []).map((entry) => ({
+      id: entry.tag.id,
+      name: entry.tag.name,
+      slug: entry.tag.slug,
+      kind: entry.tag.kind,
+      createdAt: entry.tag.createdAt.toISOString(),
+    })),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     sandboxUrl: buildSandboxUrl(row.slug),
@@ -320,8 +333,10 @@ export async function create(input: CreateProjectInput): Promise<CreateProjectRe
         screenshots: stringifyScreenshots(input.screenshots),
         stats: { create: {} },
       },
-      select: { slug: true },
+      select: { id: true, slug: true },
     });
+
+    await setProjectTags(row.id, input.tagIds);
 
     console.log(`[project][create] slug=${row.slug} source=EXTERNAL_URL ttl=${ttlDays}d`);
     await invalidateTag('projects');
@@ -369,7 +384,7 @@ export async function create(input: CreateProjectInput): Promise<CreateProjectRe
     await writeMeta(slug, meta);
     await writeCover(slug, buildCoverSvg(slug, title));
 
-    await prisma.project.create({
+    const created = await prisma.project.create({
       data: {
         slug,
         title,
@@ -392,6 +407,7 @@ export async function create(input: CreateProjectInput): Promise<CreateProjectRe
       },
       select: { id: true },
     });
+    await setProjectTags(created.id, input.tagIds);
   } catch (error) {
     // 回滚：库没写成，磁盘目录不能留
     await removeProjectDir(slug).catch(() => undefined);
@@ -444,6 +460,7 @@ export async function list(query: ProjectListQuery = {}): Promise<PagedResult<Pr
       q: query.q ?? '',
       sort: query.sort ?? 'new',
       campaign: query.campaign ?? '',
+      tag: query.tag ?? '',
       page: query.page ?? 1,
       pageSize: query.pageSize ?? DEFAULT_PAGE_SIZE,
     },
@@ -454,6 +471,7 @@ async function listImpl(query: ProjectListQuery = {}): Promise<PagedResult<Proje
   const { page, pageSize } = normalizePaging(query);
   const keyword = trimOrUndefined(query.q);
   const campaignSlug = trimOrUndefined(query.campaign);
+  const tagSlug = trimOrUndefined(query.tag);
 
   const where = {
     visibility: VISIBILITY.PUBLIC,
@@ -467,6 +485,8 @@ async function listImpl(query: ProjectListQuery = {}): Promise<PagedResult<Proje
     ...(campaignSlug
       ? { campaigns: { some: { status: 'joined', campaign: { slug: campaignSlug } } } }
       : {}),
+    // P3 标签系统：广场按标签筛选（tag.slug 匹配）
+    ...(tagSlug ? { tags: { some: { tag: { slug: tagSlug } } } } : {}),
   };
 
   const orderBy: Prisma.ProjectOrderByWithRelationInput[] =
@@ -716,6 +736,9 @@ export async function patch(slug: string, input: PatchProjectInput): Promise<Pro
   }
   if (input.screenshots !== undefined) {
     data.screenshots = stringifyScreenshots(input.screenshots);
+  }
+  if (input.tagIds !== undefined) {
+    await setProjectTags(row.id, input.tagIds);
   }
 
   if (Object.keys(data).length === 0) {

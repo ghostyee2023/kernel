@@ -52,6 +52,8 @@ export interface ProjectDTO {
   favoriteCount: number;
   /** 作品截图访问路径数组（相对 /api/screenshots/；空数组 = 未上传）。 */
   screenshots: string[];
+  /** 作品标签（按 sortOrder 排序；空数组 = 无标签）。 */
+  tags: TagDTO[];
   /** ISO 8601 UTC */
   createdAt: string;
   /** ISO 8601 UTC */
@@ -72,6 +74,35 @@ export interface PagedResult<T> {
   total: number;
 }
 
+/** 标签对外 DTO。 */
+export interface TagDTO {
+  id: string;
+  name: string;
+  slug: string;
+  /** custom | activity */
+  kind: string;
+  /** ISO 8601 UTC */
+  createdAt: string;
+}
+
+/** 标签列表查询参数（后台）。 */
+export interface AdminTagListQuery {
+  /** 关键词，命中 name / slug。 */
+  q?: string;
+  /** 类型过滤：custom | activity | ''（全部）。 */
+  kind?: string;
+}
+
+/** 后台标签管理 DTO（含作品数）。 */
+export interface AdminTagDTO extends TagDTO {
+  /** 关联活动 id（kind=activity 时非空）。 */
+  activityId: string | null;
+  /** 后台排序。 */
+  sortOrder: number;
+  /** 该标签下作品数。 */
+  projectCount: number;
+}
+
 /** 广场列表查询参数。 */
 export interface ProjectListQuery {
   /** `new` 按发布时间 / `hot` 按热度（P1 未实现，UI 置灰）/ `votes` 按票数。 */
@@ -80,6 +111,8 @@ export interface ProjectListQuery {
   q?: string;
   /** 活动 slug 过滤（P1 活动模块）：只返回报名了该活动（joined）的作品。 */
   campaign?: string;
+  /** 标签 slug 过滤（P3 标签系统）。 */
+  tag?: string;
   page?: number;
   pageSize?: number;
 }
@@ -107,6 +140,8 @@ export interface CreateProjectInput {
   authorId?: string;
   /** 作品截图文件名数组（/api/screenshots/ 下的文件名）。 */
   screenshots?: string[];
+  /** 标签 id 数组（后台预置库，≤5）。 */
+  tagIds?: string[];
 }
 
 /** 创建作品出参。 */
@@ -129,6 +164,8 @@ export interface PatchProjectInput {
   authorAlias?: string | null;
   /** 作品截图文件名数组（/api/screenshots/ 下的文件名；空数组 = 清空）。 */
   screenshots?: string[];
+  /** 标签 id 数组（≤5；空数组 = 清空标签）。 */
+  tagIds?: string[];
 }
 
 /* ============================================================================

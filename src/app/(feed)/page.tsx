@@ -19,6 +19,7 @@ import { PlazaFilterBar, ProjectGrid } from '@/components/project';
 import { HeroCanvas } from '@/components/project/HeroCanvas';
 import { getSession } from '@/lib/auth';
 import * as campaignService from '@/lib/campaign-service';
+import * as tagService from '@/lib/tag-service';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import { formatBytes, formatCount } from '@/lib/format';
 import * as projectService from '@/lib/project-service';
@@ -54,12 +55,13 @@ function normalizeSort(value: string): 'new' | 'votes' {
   return value === 'votes' ? 'votes' : 'new';
 }
 
-/** 拼接翻页链接，保留现有查询条件（q + sort + campaign）。 */
-function pageHref(q: string, sort: 'new' | 'votes', campaign: string, page: number): string {
+/** 拼接翻页链接，保留现有查询条件（q + sort + campaign + tag）。 */
+function pageHref(q: string, sort: 'new' | 'votes', campaign: string, tag: string, page: number): string {
   const params = new URLSearchParams();
   if (q !== '') params.set('q', q);
   if (sort !== 'new') params.set('sort', sort);
   if (campaign !== '') params.set('campaign', campaign);
+  if (tag !== '') params.set('tag', tag);
   if (page > 1) params.set('page', String(page));
   const query = params.toString();
   return query === '' ? '/' : `/?${query}`;
@@ -70,22 +72,25 @@ export default async function PlazaPage({ searchParams }: PageProps) {
   const q = single(sp.q).trim();
   const sort = normalizeSort(single(sp.sort));
   const campaign = single(sp.campaign).trim();
+  const tag = single(sp.tag).trim();
   const parsedPage = Number.parseInt(single(sp.page), 10);
   const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
 
   const listQuery: ProjectListQuery = { q: q === '' ? undefined : q, page, pageSize: DEFAULT_PAGE_SIZE };
   if (sort !== 'new') listQuery.sort = sort;
   if (campaign !== '') listQuery.campaign = campaign;
+  if (tag !== '') listQuery.tag = tag;
 
   // P1 流式：公开只读查询走 Data Cache（list/stats/selectable），SSR 不再阻塞 per-user 收藏查询；
   // 卡片星标由客户端挂载后调 GET /api/favorites 批量点亮（壳先出、星标后补）。
   // hero：activeCampaign 判定「限时活动进行中」徽章（collecting/voting 才算，无则整行隐藏）。
   const session = await getSession();
-  const [result, summary, selectable, active] = await Promise.all([
+  const [result, summary, selectable, active, tags] = await Promise.all([
     projectService.list(listQuery),
     projectService.stats(),
     campaignService.listSelectable(),
     campaignService.activeCampaign(),
+    tagService.listPublicTags(),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
@@ -149,6 +154,8 @@ export default async function PlazaPage({ searchParams }: PageProps) {
           total={result.total}
           campaigns={selectable.map((item) => ({ slug: item.slug, title: item.title }))}
           campaign={campaign}
+          tags={tags.map((item) => ({ slug: item.slug, name: item.name }))}
+          tag={tag}
         />
       </Suspense>
 
@@ -183,7 +190,7 @@ export default async function PlazaPage({ searchParams }: PageProps) {
           <nav className="pager" aria-label="分页">
             <Link
               className="btn btn-secondary btn-sm"
-              href={pageHref(q, sort, campaign, Math.max(1, page - 1))}
+              href={pageHref(q, sort, campaign, tag, Math.max(1, page - 1))}
               aria-disabled={page <= 1}
               tabIndex={page <= 1 ? -1 : undefined}
             >
@@ -196,7 +203,7 @@ export default async function PlazaPage({ searchParams }: PageProps) {
 
             <Link
               className="btn btn-secondary btn-sm"
-              href={pageHref(q, sort, campaign, Math.min(totalPages, page + 1))}
+              href={pageHref(q, sort, campaign, tag, Math.min(totalPages, page + 1))}
               aria-disabled={page >= totalPages}
               tabIndex={page >= totalPages ? -1 : undefined}
             >

@@ -97,6 +97,16 @@ export const ACTIVITY_TYPE = {
   ONLINE: 'ONLINE',
   OFFLINE: 'OFFLINE',
 } as const;
+
+/** 标签类型（P3 标签系统）：custom 后台预置 / activity 活动自动同步。 */
+export const TAG_KIND = {
+  CUSTOM: 'custom',
+  ACTIVITY: 'activity',
+} as const;
+export type TagKind = (typeof TAG_KIND)[keyof typeof TAG_KIND];
+
+/** 作品标签数量上限。 */
+export const MAX_PROJECT_TAGS = 5;
 export type ActivityType = (typeof ACTIVITY_TYPE)[keyof typeof ACTIVITY_TYPE];
 /** 活动类型展示文案。 */
 export const ACTIVITY_TYPE_LABEL: Record<ActivityType, string> = {

@@ -22,6 +22,12 @@ export interface CampaignFilterOption {
   title: string;
 }
 
+/** 可筛标签选项。 */
+export interface TagFilterOption {
+  slug: string;
+  name: string;
+}
+
 /** 组件属性。 */
 export interface PlazaFilterBarProps {
   /** 当前关键词（来自 URL）。 */
@@ -34,6 +40,10 @@ export interface PlazaFilterBarProps {
   campaigns?: CampaignFilterOption[];
   /** 当前选中的活动 slug（来自 URL）。 */
   campaign?: string;
+  /** 可筛标签（后台预置 + 活动标签）。 */
+  tags?: TagFilterOption[];
+  /** 当前选中的标签 slug（来自 URL）。 */
+  tag?: string;
 }
 
 /** 渲染筛选条。 */
@@ -43,6 +53,8 @@ export function PlazaFilterBar({
   total,
   campaigns = [],
   campaign = '',
+  tags = [],
+  tag = '',
 }: PlazaFilterBarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -91,6 +103,17 @@ export function PlazaFilterBar({
     router.push(query === '' ? '/' : `/?${query}`);
   };
 
+  /** 切换标签筛选：写回 URL，翻页重置到第一页。 */
+  const changeTag = (next: string): void => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === '') params.delete('tag');
+    else params.set('tag', next);
+    params.delete('page');
+
+    const query = params.toString();
+    router.push(query === '' ? '/' : `/?${query}`);
+  };
+
   return (
     <div className="filterbar">
       <div className="filterbar__inner">
@@ -119,6 +142,25 @@ export function PlazaFilterBar({
               {campaigns.map((item) => (
                 <option key={item.slug} value={item.slug}>
                   {item.title}
+                </option>
+              ))}
+            </select>
+          </>
+        ) : null}
+
+        {tags.length > 0 ? (
+          <>
+            <span className="divider-v" aria-hidden="true" />
+            <select
+              className="select filterbar__campaign"
+              aria-label="按标签筛选"
+              value={tag}
+              onChange={(event) => changeTag(event.target.value)}
+            >
+              <option value="">全部标签</option>
+              {tags.map((item) => (
+                <option key={item.slug} value={item.slug}>
+                  #{item.name}
                 </option>
               ))}
             </select>

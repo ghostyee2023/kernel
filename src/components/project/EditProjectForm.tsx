@@ -24,6 +24,7 @@ import type { ProjectDTO } from '@/lib/types';
 import { ApiError, patchProject } from '@/lib/upload-client';
 
 import { ScreenshotUploader } from '@/components/upload/ScreenshotUploader';
+import { TagSelect } from '@/components/upload/TagSelect';
 
 /** 可见性选项（与发布表单一致）。 */
 const VISIBILITY_OPTIONS: Array<{ value: Visibility; title: string; desc: string }> = [
@@ -46,6 +47,7 @@ interface EditDraft {
   authorAlias: string;
   visibility: Visibility;
   screenshots: string[];
+  tagIds: string[];
   /** ISO 8601 UTC */
   savedAt: string;
 }
@@ -61,6 +63,7 @@ export function EditProjectForm({ project }: EditProjectFormProps): React.JSX.El
   const [authorAlias, setAuthorAlias] = React.useState<string>(project.authorAlias ?? '');
   const [visibility, setVisibility] = React.useState<Visibility>(project.visibility as Visibility);
   const [screenshots, setScreenshots] = React.useState<string[]>(project.screenshots);
+  const [tagIds, setTagIds] = React.useState<string[]>(project.tags.map((tag) => tag.id));
   const [busy, setBusy] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string>('');
   /** 是否已恢复本地草稿（未保存内容）。 */
@@ -85,6 +88,7 @@ export function EditProjectForm({ project }: EditProjectFormProps): React.JSX.El
       setAuthorAlias(draft.authorAlias);
       setVisibility(draft.visibility);
       setScreenshots(Array.isArray(draft.screenshots) ? draft.screenshots : []);
+      setTagIds(Array.isArray(draft.tagIds) ? draft.tagIds : []);
       setDraftSavedAt(draft.savedAt ?? '');
       setRestored(true);
     } catch {
@@ -102,14 +106,14 @@ export function EditProjectForm({ project }: EditProjectFormProps): React.JSX.El
     }
     const timer = setTimeout(() => {
       try {
-        const draft: EditDraft = { title, summary, description, authorAlias, visibility, screenshots, savedAt: new Date().toISOString() };
+        const draft: EditDraft = { title, summary, description, authorAlias, visibility, screenshots, tagIds, savedAt: new Date().toISOString() };
         localStorage.setItem(draftKey, JSON.stringify(draft));
       } catch {
         // 存储不可用 / 超限时静默忽略（不影响编辑）
       }
     }, 600);
     return () => clearTimeout(timer);
-  }, [draftKey, title, summary, description, authorAlias, visibility, screenshots]);
+  }, [draftKey, title, summary, description, authorAlias, visibility, screenshots, tagIds]);
 
   /** 放弃草稿：清 localStorage 并还原作品原始值。 */
   function discardDraft(): void {
@@ -126,6 +130,7 @@ export function EditProjectForm({ project }: EditProjectFormProps): React.JSX.El
     setAuthorAlias(project.authorAlias ?? '');
     setVisibility(project.visibility as Visibility);
     setScreenshots(project.screenshots);
+    setTagIds(project.tags.map((tag) => tag.id));
   }
 
   /** 提交编辑。 */
@@ -142,6 +147,7 @@ export function EditProjectForm({ project }: EditProjectFormProps): React.JSX.El
         authorAlias: authorAlias.trim() || undefined,
         visibility,
         screenshots,
+        tagIds,
       });
       // 保存成功 → 清除本地草稿
       try {
@@ -226,6 +232,10 @@ export function EditProjectForm({ project }: EditProjectFormProps): React.JSX.El
 
         <Field label="作品截图" hint="可裁剪，第一张作为封面，最多 9 张">
           <ScreenshotUploader value={screenshots} onChange={setScreenshots} />
+        </Field>
+
+        <Field label="标签" hint="选填，最多 5 个；便于在广场按标签筛选">
+          <TagSelect value={tagIds} onChange={setTagIds} />
         </Field>
 
         <Field label="作者署名" htmlFor="ef-alias" hint={`选填，留空则显示为「本地创作者」，最多 ${MAX_AUTHOR_ALIAS_LEN} 字`}>

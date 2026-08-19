@@ -117,11 +117,48 @@ model Project {
   campaigns ProjectCampaign[]
   /// P3 个人空间：收藏关系（作品被收藏数 / 按作品反查）。
   favorites Favorite[]
+  /// 作品标签关联（P3 标签系统）。
+  tags ProjectTag[]
 
   @@index([visibility, status, createdAt])
   @@index([expireAt, status])
   @@index([status, purgeAt])
   @@index([authorId])
+}
+
+/// 标签（后台预置库；活动标签由活动自动同步，kind=activity）。
+model Tag {
+  id      String @id @default(cuid())
+  /// 展示名（唯一）
+  name    String @unique
+  /// 路由/筛选标识（唯一）
+  slug    String @unique
+  /// custom | activity —— 取值见 lib/constants.ts TAG_KIND
+  kind    String @default("custom")
+  /// 关联活动 id（仅 kind=activity 有值；活动改名时同步 name/slug）
+  activityId String? @unique
+  /// 后台排序：越小越靠前
+  sortOrder Int   @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects ProjectTag[]
+
+  @@index([sortOrder])
+}
+
+/// 作品标签关联（多对多，复合主键天然幂等）。
+model ProjectTag {
+  projectId String
+  tagId     String
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, tagId])
+  @@index([tagId])
 }
 
 /// 作品统计。P0 只写 viewCount，其余建列占位。

@@ -138,6 +138,15 @@ export default async function ProjectDetailPage({ params }: PageProps) {
               {extraCount > 0 ? <Badge tone="campaign">+{extraCount}</Badge> : null}
             </span>
           ) : null}
+          {project.tags.length > 0 ? (
+            <span className="detail__campaigns" aria-label="标签">
+              {project.tags.map((tag) => (
+                <Link key={tag.id} href={`/?tag=${tag.slug}`} title={`查看「${tag.name}」标签的作品`}>
+                  <Badge tone={tag.kind === 'activity' ? 'campaign' : 'info'}>#{tag.name}</Badge>
+                </Link>
+              ))}
+            </span>
+          ) : null}
         </div>
 
         {/* 作者 / 管理员可编辑作品（P3 补：编辑入口） */}

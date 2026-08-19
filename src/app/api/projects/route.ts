@@ -24,6 +24,8 @@ function parseQuery(url: URL): ProjectListQuery {
   return {
     sort,
     q: url.searchParams.get('q') ?? undefined,
+    campaign: url.searchParams.get('campaign') ?? undefined,
+    tag: url.searchParams.get('tag') ?? undefined,
     page: Number(url.searchParams.get('page') ?? 1),
     pageSize: Number(url.searchParams.get('pageSize') ?? DEFAULT_PAGE_SIZE),
   };

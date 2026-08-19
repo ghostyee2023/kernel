@@ -18,6 +18,7 @@ import { Prisma } from '@prisma/client';
 import { customAlphabet } from 'nanoid';
 
 import { writeAudit } from './audit';
+import { addProjectTag, removeProjectTag, syncActivityTag } from './tag-service';
 import {
   ADMIN_DEFAULT_PAGE_SIZE,
   ADMIN_MAX_PAGE_SIZE,
@@ -603,6 +604,8 @@ export async function create(input: CampaignInput, actorId: string): Promise<Cam
   });
   console.log(`[campaign][create] slug=${row.slug} title=${row.title} status=${row.status}`);
   await invalidateTag('campaigns');
+  // 活动自动同步为标签（kind=activity，名随活动）
+  await syncActivityTag({ id: row.id, title: row.title }).catch(() => undefined);
   return toDTO(row);
 }
 
@@ -664,6 +667,8 @@ export async function patch(id: string, input: CampaignInput, actorId: string): 
   console.log(`[campaign][update] id=${id} slug=${updated.slug} status=${updated.status}`);
   await invalidateTag('campaigns');
   await invalidateTag(`campaign:${row.slug}`);
+  // 活动名变更 → 同步标签名
+  await syncActivityTag({ id: updated.id, title: updated.title }).catch(() => undefined);
   return toDTO(updated as unknown as CampaignRow);
 }
 
@@ -737,6 +742,11 @@ export async function join(slug: string, projectId: string, userId: string): Pro
   console.log(`[campaign][join] campaign=${campaign.slug} project=${project.id} user=${userId}`);
   await invalidateTag(`campaign:${campaign.slug}`);
   await invalidateTag('campaigns');
+  // 报名成功 → 自动打上活动标签（活动标签随活动创建时同步）
+  const activityTag = await prisma.tag.findUnique({ where: { activityId: campaign.id } });
+  if (activityTag) {
+    await addProjectTag(project.id, activityTag.id).catch(() => undefined);
+  }
   return { joined: true, alreadyJoined: false, projectCount: count };
 }
 
@@ -777,6 +787,12 @@ export async function removeProject(
     where: { campaignId_projectId: { campaignId: id, projectId } },
     data: { status: PROJECT_CAMPAIGN_STATUS.REMOVED },
   });
+
+  // 解除活动标签关联
+  const activityTag = await prisma.tag.findUnique({ where: { activityId: id } });
+  if (activityTag) {
+    await removeProjectTag(projectId, activityTag.id).catch(() => undefined);
+  }
 
   await writeAudit({
     actorId,

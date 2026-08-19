@@ -22,6 +22,7 @@ import {
 import type { FileNode, ValidatedUpload } from '@/lib/types';
 
 import { ScreenshotUploader } from './ScreenshotUploader';
+import { TagSelect } from './TagSelect';
 
 /** 表单值。 */
 export interface PublishFormValue {
@@ -34,6 +35,8 @@ export interface PublishFormValue {
   entryFile: string;
   /** 作品截图文件名数组。 */
   screenshots: string[];
+  /** 标签 id 数组（≤5）。 */
+  tagIds: string[];
 }
 
 /** 组件属性。 */
@@ -90,6 +93,7 @@ export function PublishForm({
     ttlDays: DEFAULT_TTL_DAYS,
     entryFile: validated?.entryFileSuggested ?? '',
     screenshots: [],
+    tagIds: [],
   });
   const [touched, setTouched] = useState<boolean>(false);
 
@@ -150,6 +154,10 @@ export function PublishForm({
 
       <Field label="作品截图" hint="选填，最多 9 张；可裁剪，第一张作为封面">
         <ScreenshotUploader value={value.screenshots} onChange={(next) => update('screenshots', next)} />
+      </Field>
+
+      <Field label="标签" hint={`选填，最多 5 个；便于在广场按标签筛选`}>
+        <TagSelect value={value.tagIds} onChange={(next) => update('tagIds', next)} />
       </Field>
 
       <Field label="作者署名" htmlFor="pf-alias" hint={`选填，留空则显示为「本地创作者」，最多 ${MAX_AUTHOR_ALIAS_LEN} 字`}>

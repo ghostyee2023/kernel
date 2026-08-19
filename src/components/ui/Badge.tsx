@@ -2,7 +2,7 @@ import * as React from 'react';
 import { cn } from '@/lib/cn';
 
 /** 徽章语气，对齐 DESIGN.md §4.3 与 globals.css 的 `.badge--*`。 */
-export type BadgeTone = 'campaign' | 'live' | 'expiring' | 'private' | 'unlisted' | 'archived' | 'blocked';
+export type BadgeTone = 'campaign' | 'live' | 'expiring' | 'private' | 'unlisted' | 'archived' | 'blocked' | 'info';
 
 const TONE_CLASS: Record<BadgeTone, string> = {
   campaign: 'badge--campaign',
@@ -12,6 +12,7 @@ const TONE_CLASS: Record<BadgeTone, string> = {
   unlisted: 'badge--unlisted',
   archived: 'badge--archived',
   blocked: 'badge--blocked',
+  info: 'badge--info',
 };
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {

@@ -2776,3 +2776,23 @@
   color: var(--text-primary); font-size: 13.5px;
 }
 .draft-banner .btn { flex: none; }
+
+/* 作品卡片标签 */
+.card__tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.card__tag {
+  font-size: 11px; line-height: 1; padding: 3px 8px; border-radius: 99px;
+  background: var(--gray-100); color: var(--text-secondary); white-space: nowrap;
+}
+.card__tag--more { background: transparent; border: 1px dashed var(--border-strong); }
+
+/* 后台标签管理 */
+.admin-inline-edit { display: flex; align-items: center; gap: 6px; }
+.admin-inline-edit .input { width: 140px; height: 30px; }
+.admin-tag-projects { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.admin-tag-project {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 12px; border: 1px solid var(--border-default); border-radius: 10px;
+}
+.admin-tag-project__info { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.admin-tag-project__info .admin-table__title { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }

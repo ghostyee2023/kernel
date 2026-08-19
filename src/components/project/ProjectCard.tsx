@@ -78,6 +78,17 @@ export function ProjectCard({
           <h3 className="card__title">{project.title}</h3>
           <p className="card__desc">{project.summary ?? '这件作品还没有写简介。'}</p>
 
+          {project.tags.length > 0 ? (
+            <div className="card__tags" aria-label="标签">
+              {project.tags.slice(0, 3).map((tag) => (
+                <span key={tag.id} className="card__tag">
+                  #{tag.name}
+                </span>
+              ))}
+              {project.tags.length > 3 ? <span className="card__tag card__tag--more">+{project.tags.length - 3}</span> : null}
+            </div>
+          ) : null}
+
           <div className="card__foot">
             <span className="card__author">
               <Avatar name={project.authorName} />

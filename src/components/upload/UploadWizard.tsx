@@ -134,6 +134,7 @@ export function UploadWizard() {
           ttlDays: form.ttlDays,
           entryFile: form.entryFile || undefined,
           screenshots: form.screenshots.length > 0 ? form.screenshots : undefined,
+          tagIds: form.tagIds.length > 0 ? form.tagIds : undefined,
         });
         setResult(created);
         setPublishedTitle(form.title);
