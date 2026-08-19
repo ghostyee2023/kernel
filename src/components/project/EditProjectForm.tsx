@@ -38,6 +38,18 @@ export interface EditProjectFormProps {
   project: ProjectDTO;
 }
 
+/** 本地草稿结构（localStorage，按 slug 隔离）。 */
+interface EditDraft {
+  title: string;
+  summary: string;
+  description: string;
+  authorAlias: string;
+  visibility: Visibility;
+  screenshots: string[];
+  /** ISO 8601 UTC */
+  savedAt: string;
+}
+
 /** 渲染编辑表单。 */
 export function EditProjectForm({ project }: EditProjectFormProps): React.JSX.Element {
   const router = useRouter();
@@ -51,8 +63,70 @@ export function EditProjectForm({ project }: EditProjectFormProps): React.JSX.El
   const [screenshots, setScreenshots] = React.useState<string[]>(project.screenshots);
   const [busy, setBusy] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string>('');
+  /** 是否已恢复本地草稿（未保存内容）。 */
+  const [restored, setRestored] = React.useState<boolean>(false);
+  const [draftSavedAt, setDraftSavedAt] = React.useState<string>('');
 
   const canSubmit = title.trim() !== '' && !busy;
+
+  /** 本地草稿 key（按作品隔离）。 */
+  const draftKey = `kernel-edit-draft:${project.slug}`;
+
+  /* ---------- 草稿恢复（挂载时读 localStorage） ---------- */
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as EditDraft;
+      if (!draft || typeof draft.title !== 'string') return;
+      setTitle(draft.title);
+      setSummary(draft.summary);
+      setDescription(draft.description);
+      setAuthorAlias(draft.authorAlias);
+      setVisibility(draft.visibility);
+      setScreenshots(Array.isArray(draft.screenshots) ? draft.screenshots : []);
+      setDraftSavedAt(draft.savedAt ?? '');
+      setRestored(true);
+    } catch {
+      // 忽略损坏的草稿
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* ---------- 自动保存（字段变化 debounce 600ms，跳过首次渲染） ---------- */
+  const skipAutoSave = React.useRef(true);
+  React.useEffect(() => {
+    if (skipAutoSave.current) {
+      skipAutoSave.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      try {
+        const draft: EditDraft = { title, summary, description, authorAlias, visibility, screenshots, savedAt: new Date().toISOString() };
+        localStorage.setItem(draftKey, JSON.stringify(draft));
+      } catch {
+        // 存储不可用 / 超限时静默忽略（不影响编辑）
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [draftKey, title, summary, description, authorAlias, visibility, screenshots]);
+
+  /** 放弃草稿：清 localStorage 并还原作品原始值。 */
+  function discardDraft(): void {
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      // ignore
+    }
+    setRestored(false);
+    setDraftSavedAt('');
+    setTitle(project.title);
+    setSummary(project.summary ?? '');
+    setDescription(project.description ?? '');
+    setAuthorAlias(project.authorAlias ?? '');
+    setVisibility(project.visibility as Visibility);
+    setScreenshots(project.screenshots);
+  }
 
   /** 提交编辑。 */
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
@@ -69,10 +143,22 @@ export function EditProjectForm({ project }: EditProjectFormProps): React.JSX.El
         visibility,
         screenshots,
       });
+      // 保存成功 → 清除本地草稿
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        // ignore
+      }
       toast('已保存', 'success');
       router.push(`/w/${project.slug}`);
       router.refresh();
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'NOT_LOGGED_IN') {
+        // 会话过期：内容已自动保存到本地，登录回来自动恢复
+        toast('登录已过期，编辑内容已自动保存，登录后将自动恢复', 'danger');
+        router.push(`/login?next=/w/${encodeURIComponent(project.slug)}/edit`);
+        return;
+      }
       if (err instanceof ApiError) {
         setError(err.message);
       } else {
@@ -92,6 +178,19 @@ export function EditProjectForm({ project }: EditProjectFormProps): React.JSX.El
           修改后立即生效；截图第一张作为封面，最多 9 张。
         </p>
       </header>
+
+      {restored ? (
+        <div className="draft-banner" role="status">
+          <span>
+            已恢复上次未保存的内容
+            {draftSavedAt ? `（${new Date(draftSavedAt).toLocaleString('zh-CN')}）` : ''}
+            ，确认无误后保存
+          </span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={discardDraft}>
+            放弃草稿
+          </button>
+        </div>
+      ) : null}
 
       <form className="publish-form" onSubmit={(event) => void handleSubmit(event)} noValidate>
         <Field label="作品标题" htmlFor="ef-title" required hint={`最多 ${MAX_TITLE_LEN} 字`}>

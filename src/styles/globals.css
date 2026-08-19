@@ -2767,3 +2767,12 @@
 .shot-uploader__item:active { cursor: grabbing; }
 .shot-uploader__item--over { border-color: var(--color-primary); box-shadow: 0 0 0 2px var(--color-primary-soft); }
 .cropper-modal__queue { margin: 0 0 10px; font-size: 12px; color: var(--text-secondary); }
+
+/* 编辑草稿恢复提示条 */
+.draft-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 16px; margin-bottom: 18px; border-radius: 10px;
+  border: 1px solid var(--color-warning-soft); background: var(--color-warning-soft);
+  color: var(--text-primary); font-size: 13.5px;
+}
+.draft-banner .btn { flex: none; }
