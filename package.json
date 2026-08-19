@@ -5,7 +5,7 @@
   "description": "Kernel · 创意种子 — 静态作品发布平台 P0 骨架（本地 Node.js 轻量桩）",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/db-sync-remote.mjs && prisma generate && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "db:push": "prisma db push",
