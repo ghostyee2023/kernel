@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
 import {
-  FavoriteButton,
+  FavoriteHero,
   MobileVoteBar,
   PreviewFrame,
   ProjectMetaPanel,
@@ -149,15 +149,6 @@ export default async function ProjectDetailPage({ params }: PageProps) {
             </span>
           ) : null}
         </div>
-
-        {/* 作者 / 管理员可编辑作品（P3 补：编辑入口） */}
-        {canManageProject(session, project) ? (
-          <div className="detail__actions">
-            <Link className="btn btn-ghost btn-sm" href={`/w/${project.slug}/edit`}>
-              编辑作品
-            </Link>
-          </div>
-        ) : null}
       </header>
 
       <div className="detail">
@@ -198,7 +189,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         </section>
 
         <aside className="detail__side" aria-label="作品信息与操作">
-          {/* P3 收藏：与「投一票」并列（同一操作区，星形图标区分投票爱心） */}
+          {/* 投票 + 收藏（两卡同款视觉，对称布局） */}
           <div className="vote-hero-stack">
             <VoteHero
               slug={slug}
@@ -207,17 +198,24 @@ export default async function ProjectDetailPage({ params }: PageProps) {
               hasVoted={hasVoted}
               isLoggedIn={session !== null}
             />
-            <FavoriteButton
+            <FavoriteHero
               slug={slug}
-              initialFavorited={hasFavorited}
+              projectId={project.id}
+              favoriteCount={project.favoriteCount}
+              favorited={hasFavorited}
               isLoggedIn={session !== null}
-              loginNext={`/w/${slug}`}
-              variant="inline"
             />
-            <span className="muted t-body-sm" title="收藏数">
-              {formatCount(project.favoriteCount)} 人收藏
-            </span>
           </div>
+
+          {/* 主操作：立即访问（外链 → 外站 / 本地 → 沙箱预览） */}
+          <a
+            className="btn btn-primary detail__cta"
+            href={targetUrl}
+            target="_blank"
+            rel="noopener noreferrer external"
+          >
+            立即访问 →
+          </a>
 
           <ShareCard
             url={targetUrl}
@@ -225,10 +223,13 @@ export default async function ProjectDetailPage({ params }: PageProps) {
             poster={{ title: project.title, slug }}
           />
 
-          <ProjectMetaPanel
-            project={project}
-            dirPath={isExternal ? null : resolveProjectDir(slug)}
-          />
+          {/* 作品信息（短码/文件/体积/可见性等）：仅作者 / 管理员可见 */}
+          {canManageProject(session, project) ? (
+            <ProjectMetaPanel
+              project={project}
+              dirPath={isExternal ? null : resolveProjectDir(slug)}
+            />
+          ) : null}
         </aside>
       </div>
       </div>

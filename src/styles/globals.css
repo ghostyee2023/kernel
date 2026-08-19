@@ -2848,3 +2848,7 @@
 /* 简介段（无 border） */
 .detail__desc h2 { font-size: 16px; margin-bottom: 6px; }
 .detail__desc p { color: var(--text-secondary); line-height: 1.75; }
+
+/* 详情页侧栏：立即访问主按钮（占满宽度） */
+.detail__cta { display: block; width: 100%; margin-top: 8px; padding: 12px; font-size: 15px; }
+.detail__cta:hover { transform: translateY(-1px); }
