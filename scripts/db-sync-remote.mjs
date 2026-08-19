@@ -66,6 +66,7 @@ const ALTERS = [
   { table: 'User', col: 'riskLevel', ddl: 'ALTER TABLE User ADD COLUMN riskLevel INTEGER NOT NULL DEFAULT 0' },
   { table: 'Campaign', col: 'resultVisible', ddl: 'ALTER TABLE Campaign ADD COLUMN resultVisible BOOLEAN NOT NULL DEFAULT 1' },
   { table: 'Campaign', col: 'activityType', ddl: "ALTER TABLE Campaign ADD COLUMN activityType TEXT NOT NULL DEFAULT 'ONLINE'" },
+  { table: 'Project', col: 'screenshots', ddl: "ALTER TABLE Project ADD COLUMN screenshots TEXT NOT NULL DEFAULT '[]'" },
 ];
 
 let added = 0;
