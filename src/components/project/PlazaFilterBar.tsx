@@ -94,18 +94,6 @@ export function PlazaFilterBar({
   return (
     <div className="filterbar">
       <div className="filterbar__inner">
-        <div className="segment" role="group" aria-label="排序方式">
-          <button type="button" aria-pressed={sort === 'new'} onClick={() => changeSort('new')}>
-            最新
-          </button>
-          <button type="button" aria-pressed="false" disabled title="P0 暂未开放，需要真实热度数据">
-            最热
-          </button>
-          <button type="button" aria-pressed={sort === 'votes'} onClick={() => changeSort('votes')}>
-            票数
-          </button>
-        </div>
-
         {tags.length > 0 ? (
           <div className="chips filterbar__tags" role="group" aria-label="按标签筛选">
             <button
@@ -137,33 +125,47 @@ export function PlazaFilterBar({
 
         <span className="nav__spacer" />
 
-        <form
-          className="search"
-          role="search"
-          onSubmit={(event) => {
-            event.preventDefault();
-            submit(keyword);
-          }}
-        >
-          <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true">
-            <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" strokeWidth="1.8" />
-            <path d="m13.5 13.5 3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-          <input
-            type="search"
-            value={keyword}
-            placeholder="搜索作品标题或简介"
-            aria-label="搜索作品"
-            onChange={(event) => setKeyword(event.target.value)}
-          />
-          {q !== '' ? (
-            <button type="button" className="icon-btn" aria-label="清空搜索" onClick={() => submit('')}>
-              <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
-                <path d="m4 4 8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
+        <div className="filterbar__right">
+          <div className="segment" role="group" aria-label="排序方式">
+            <button type="button" aria-pressed={sort === 'new'} onClick={() => changeSort('new')}>
+              最新
             </button>
-          ) : null}
-        </form>
+            <button type="button" aria-pressed="false" disabled title="P0 暂未开放，需要真实热度数据">
+              最热
+            </button>
+            <button type="button" aria-pressed={sort === 'votes'} onClick={() => changeSort('votes')}>
+              票数
+            </button>
+          </div>
+
+          <form
+            className="search"
+            role="search"
+            onSubmit={(event) => {
+              event.preventDefault();
+              submit(keyword);
+            }}
+          >
+            <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true">
+              <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" strokeWidth="1.8" />
+              <path d="m13.5 13.5 3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+            <input
+              type="search"
+              value={keyword}
+              placeholder="搜索作品标题或简介"
+              aria-label="搜索作品"
+              onChange={(event) => setKeyword(event.target.value)}
+            />
+            {q !== '' ? (
+              <button type="button" className="icon-btn" aria-label="清空搜索" onClick={() => submit('')}>
+                <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                  <path d="m4 4 8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+              </button>
+            ) : null}
+          </form>
+        </div>
       </div>
     </div>
   );

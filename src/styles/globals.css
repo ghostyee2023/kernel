@@ -2852,3 +2852,6 @@
 /* 详情页侧栏：立即访问主按钮（占满宽度） */
 .detail__cta { display: block; width: 100%; margin-top: 8px; padding: 12px; font-size: 15px; }
 .detail__cta:hover { transform: translateY(-1px); }
+
+/* 广场筛选条：排序与搜索并排靠右 */
+.filterbar__right { display: flex; align-items: center; gap: 12px; }
