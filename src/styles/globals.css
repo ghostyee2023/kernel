@@ -2743,3 +2743,9 @@
 .shot-gallery__item { display: block; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: var(--gray-50); transition: transform .18s ease, border-color .18s ease; }
 .shot-gallery__item:hover { transform: translateY(-2px); border-color: var(--border-strong); }
 .shot-gallery__item img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; }
+
+/* 截图拖拽排序高亮 + 裁剪排队提示 */
+.shot-uploader__item { cursor: grab; }
+.shot-uploader__item:active { cursor: grabbing; }
+.shot-uploader__item--over { border-color: var(--color-primary); box-shadow: 0 0 0 2px var(--color-primary-soft); }
+.cropper-modal__queue { margin: 0 0 10px; font-size: 12px; color: var(--text-secondary); }
