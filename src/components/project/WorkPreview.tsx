@@ -22,21 +22,15 @@ export interface WorkPreviewProps {
   displayUrl: string;
   /** 作品标题（iframe 无障碍标题）。 */
   title: string;
-  /** 是否外链作品（外链时展示提示 + 前往访问，不渲染浏览器壳）。 */
-  isExternal: boolean;
-  /** 外链目标地址（isExternal 为 true 时生效）。 */
-  externalUrl?: string;
   /** 点击浏览器栏「分享」图标时展开的分享面板 DOM id（可选）。 */
   sharePanelId?: string;
 }
 
-/** 渲染统一作品预览（沙箱运行）。 */
+/** 渲染统一作品预览（沙箱运行）。外链作品的访问入口由详情页侧栏的 `.visit-btn` 统一承担。 */
 export function WorkPreview({
   sandboxUrl,
   displayUrl,
   title,
-  isExternal,
-  externalUrl,
   sharePanelId,
 }: WorkPreviewProps): React.JSX.Element {
   // 通过换 key 强制 iframe 重建，比 contentWindow.location.reload() 可靠
@@ -49,29 +43,6 @@ export function WorkPreview({
     const el = document.getElementById(sharePanelId);
     if (el) el.setAttribute('open', '');
   };
-
-  // —— 外链作品：保留现有提示 + 前往访问 ——
-  if (isExternal) {
-    return (
-      <div className="detail__external">
-        <h2 className="t-title">这是一件外链作品</h2>
-        <p className="muted">
-          内容托管在站外，Kernel 不代为存储、也不做沙箱隔离，请自行确认来源可信。
-        </p>
-        <p className="linkbox">
-          <span title={externalUrl}>{externalUrl}</span>
-        </p>
-        <a
-          className="btn btn-primary"
-          href={externalUrl}
-          target="_blank"
-          rel="noopener noreferrer external"
-        >
-          前往访问
-        </a>
-      </div>
-    );
-  }
 
   return (
     <div className="work-preview">

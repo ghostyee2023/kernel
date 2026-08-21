@@ -160,13 +160,11 @@ export default async function ProjectDetailPage({ params }: PageProps) {
             {/* 顶部截图轮播 banner（有截图时显示） */}
             <ScreenshotBanner screenshots={project.screenshots} title={project.title} />
 
-            {/* 统一预览：隔离沙箱运行（外链时展示提示） */}
+            {/* 统一预览：隔离沙箱运行（外链作品不渲染本组件，访问入口由侧栏 .visit-btn 承担） */}
             <WorkPreview
               sandboxUrl={targetUrl}
               displayUrl={displayShortLink(slug)}
               title={project.title}
-              isExternal={isExternal}
-              externalUrl={targetUrl}
               sharePanelId="work-share-details"
             />
 
