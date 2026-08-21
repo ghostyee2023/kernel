@@ -9,7 +9,9 @@
  *   - 键盘 ← / → 切换；
  *   - 切图时淡入动画；
  *   - 当前图序号「第 x / N」与标题；
- *   - 居中裁切展示（object-fit: contain，背景柔和）。
+ *   - 居中裁切展示（object-fit: contain，背景柔和）；
+ *   - **点击主区域 → 新窗口打开作品**（与侧栏 .visit-btn 同款 href）；
+ *   - 右上角「原图」角标 → 新窗口打开全尺寸截图。
  *
  * 资源：截图通过 `/api/screenshots/{file}`（已有 immutable 缓存；demo 截图回退到 public/screenshots/）。
  */
@@ -26,10 +28,12 @@ export interface ScreenshotBannerProps {
   screenshots: string[];
   /** 作品标题（alt 用）。 */
   title: string;
+  /** 点击 banner 跳转的「访问作品」链接（侧栏 .visit-btn 同款）。 */
+  href: string;
 }
 
 /** 渲染截图轮播。 */
-export function ScreenshotBanner({ screenshots, title }: ScreenshotBannerProps): React.JSX.Element | null {
+export function ScreenshotBanner({ screenshots, title, href }: ScreenshotBannerProps): React.JSX.Element | null {
   const total = screenshots.length;
   const [index, setIndex] = React.useState<number>(0);
   const [paused, setPaused] = React.useState<boolean>(false);
@@ -60,6 +64,8 @@ export function ScreenshotBanner({ screenshots, title }: ScreenshotBannerProps):
   }, [go, index]);
 
   const current = screenshots[index]!;
+  // 外链为空时回退到「查看原图」，避免 href="" 跳回当前页
+  const visitHref = href || screenshotUrl(current);
 
   return (
     <div
@@ -69,7 +75,14 @@ export function ScreenshotBanner({ screenshots, title }: ScreenshotBannerProps):
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <a className="banner__stage" href={screenshotUrl(current)} target="_blank" rel="noopener noreferrer" aria-label="查看原图">
+      <a
+        className="banner__stage"
+        href={visitHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`在新窗口打开作品《${title}》`}
+        title={visitHref}
+      >
         {/* key=index 使切图时重新挂载，触发淡入动画 */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -80,6 +93,21 @@ export function ScreenshotBanner({ screenshots, title }: ScreenshotBannerProps):
           decoding="async"
           draggable={false}
         />
+        <span className="banner__hint" aria-hidden="true">
+          点击访问作品 ↗
+        </span>
+      </a>
+
+      {/* 查看原图：打开全尺寸截图（新窗口） */}
+      <a
+        className="banner__origin"
+        href={screenshotUrl(current)}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="查看原图"
+        title="查看原图"
+      >
+        原图
       </a>
 
       {total > 1 ? (

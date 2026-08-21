@@ -156,8 +156,8 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
         <div className="detail">
           <section className="detail__main" aria-label="作品预览与介绍">
-            {/* 顶部截图轮播 banner（有截图时显示；自动轮播 + 切图淡入） */}
-            <ScreenshotBanner screenshots={project.screenshots} title={project.title} />
+            {/* 顶部截图轮播 banner（有截图时显示；自动轮播 + 切图淡入；点击访问作品） */}
+            <ScreenshotBanner screenshots={project.screenshots} title={project.title} href={targetUrl} />
 
             {/* 作品介绍（紧跟 banner，无边框） */}
             {project.description ? (

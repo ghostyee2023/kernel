@@ -2811,12 +2811,31 @@
 .banner__stage {
   display: block; width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
+  position: relative; cursor: pointer;
 }
 .banner__stage img {
   width: 100%; height: 100%; object-fit: contain; display: block;
   transition: opacity .25s ease;
   animation: bannerFadeIn .35s ease;
 }
+/* 悬停提示：点击访问作品（pointer-events:none 不拦截链接点击） */
+.banner__hint {
+  position: absolute; left: 14px; bottom: 12px;
+  font-size: 12px; line-height: 1; padding: 6px 10px; border-radius: 99px;
+  background: rgba(0,0,0,0.55); color: #fff;
+  pointer-events: none; user-select: none;
+  opacity: 0; transform: translateY(4px);
+  transition: opacity .18s ease, transform .18s ease;
+}
+.banner:hover .banner__hint { opacity: 1; transform: none; }
+/* 右上角「原图」角标：打开全尺寸截图 */
+.banner__origin {
+  position: absolute; right: 14px; top: 44px; z-index: 2;
+  font-size: 11px; line-height: 1; padding: 5px 9px; border-radius: 99px;
+  background: rgba(0,0,0,0.45); color: #fff; text-decoration: none;
+  backdrop-filter: blur(6px); transition: background .18s ease;
+}
+.banner__origin:hover { background: rgba(0,0,0,0.7); }
 @keyframes bannerFadeIn {
   from { opacity: 0; transform: scale(1.012); }
   to { opacity: 1; transform: none; }
