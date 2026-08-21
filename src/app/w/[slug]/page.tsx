@@ -14,7 +14,6 @@ import { notFound, redirect } from 'next/navigation';
 import { Avatar, Badge } from '@/components/ui';
 import { ScreenshotBanner } from '@/components/project/ScreenshotBanner';
 import { VoteFavoriteBlock } from '@/components/project/VoteFavoriteBlock';
-import { WorkPreview } from '@/components/project/WorkPreview';
 import { MobileVoteBar, ProjectMetaPanel, ShareCard } from '@/components/project';
 import { canManageProject, getSession } from '@/lib/auth';
 import * as campaignService from '@/lib/campaign-service';
@@ -157,18 +156,10 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
         <div className="detail">
           <section className="detail__main" aria-label="作品预览与介绍">
-            {/* 顶部截图轮播 banner（有截图时显示） */}
+            {/* 顶部截图轮播 banner（有截图时显示；自动轮播 + 切图淡入） */}
             <ScreenshotBanner screenshots={project.screenshots} title={project.title} />
 
-            {/* 统一预览：隔离沙箱运行（外链作品不渲染本组件，访问入口由侧栏 .visit-btn 承担） */}
-            <WorkPreview
-              sandboxUrl={targetUrl}
-              displayUrl={displayShortLink(slug)}
-              title={project.title}
-              sharePanelId="work-share-details"
-            />
-
-            {/* 作品介绍（紧跟预览，无边框） */}
+            {/* 作品介绍（紧跟 banner，无边框） */}
             {project.description ? (
               <div className="detail__desc">
                 <h2 className="t-title">作品介绍</h2>

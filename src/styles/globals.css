@@ -2815,6 +2815,11 @@
 .banner__stage img {
   width: 100%; height: 100%; object-fit: contain; display: block;
   transition: opacity .25s ease;
+  animation: bannerFadeIn .35s ease;
+}
+@keyframes bannerFadeIn {
+  from { opacity: 0; transform: scale(1.012); }
+  to { opacity: 1; transform: none; }
 }
 .banner__nav {
   position: absolute; top: 50%; transform: translateY(-50%);
@@ -2851,71 +2856,10 @@
 
 /* ============================================================================
    作品详情页重设计（对齐 prototype/work-detail-redesign.html）
-   A. 统一预览 WorkPreview  ·  B. 投票+收藏单卡 VoteFavoriteBlock
+   B. 投票+收藏单卡 VoteFavoriteBlock
    C. 四层头部  ·  D. 标签区块  ·  E. 移动端吸底收藏
    全部 token 化，零硬编码色值（hex 仅在 :root / [data-theme="dark"] 定义）
    ============================================================================ */
-
-/* —— A. 统一预览外壳 —— */
-.work-preview {
-  border-radius: var(--radius-card);
-  border: 1px solid var(--border-default);
-  background: var(--surface-sunken);
-  overflow: hidden;
-}
-.work-preview__bar {
-  display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px;
-  background: var(--surface-canvas); border-bottom: 1px solid var(--border-subtle);
-}
-.work-preview__dots { display: flex; gap: 6px; }
-.work-preview__dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--border-strong); display: block; }
-.work-preview__url {
-  flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12px;
-  color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.work-preview__actions { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; flex: none; }
-.work-preview__iconbtn {
-  width: 30px; height: 30px; border-radius: var(--radius-btn);
-  border: 1px solid var(--border-default); background: var(--surface-canvas);
-  display: inline-flex; align-items: center; justify-content: center;
-  color: var(--text-tertiary);
-  transition: border-color .2s var(--ease), color .2s var(--ease), background .2s var(--ease);
-}
-.work-preview__iconbtn:hover { border-color: var(--color-primary-border); color: var(--color-primary); background: var(--color-primary-soft); }
-.work-preview__viewport { position: relative; overflow: hidden; }
-.work-preview__slides { display: flex; transition: transform .4s var(--ease); }
-.work-preview__slides.is-hidden { display: none; }
-.work-preview__slide {
-  flex: 0 0 100%; min-height: 420px; display: flex; align-items: center; justify-content: center;
-  background: var(--surface-soft);
-}
-.work-preview__shot { display: block; width: 100%; height: 100%; }
-.work-preview__shot img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.work-preview__iframe { width: 100%; height: 440px; border: 0; background: var(--surface-canvas); display: block; }
-.work-preview__iframe.is-hidden { display: none; }
-.wp-nav {
-  position: absolute; top: 50%; transform: translateY(-50%);
-  width: 36px; height: 36px; border-radius: 50%;
-  border: 1px solid var(--border-default); background: var(--surface-canvas);
-  display: inline-flex; align-items: center; justify-content: center;
-  color: var(--text-secondary); box-shadow: var(--shadow-xs);
-  transition: transform .2s var(--ease), color .2s var(--ease), border-color .2s var(--ease), box-shadow .2s var(--ease);
-}
-.wp-nav:hover { border-color: var(--color-primary-border); color: var(--color-primary); transform: translateY(-50%) scale(1.06); box-shadow: var(--shadow-lg); }
-.wp-nav--prev { left: 12px; }
-.wp-nav--next { right: 12px; }
-.wp-dots { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; }
-.wp-dot {
-  width: 7px; height: 7px; border-radius: 50%; border: none; background: var(--border-strong);
-  cursor: pointer; padding: 0; transition: background .2s var(--ease), width .2s var(--ease);
-}
-.wp-dot.is-active { background: var(--color-primary); width: 18px; border-radius: var(--radius-pill); }
-.wp-count {
-  position: absolute; top: 12px; right: 12px;
-  font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary);
-  background: var(--surface-canvas); border: 1px solid var(--border-default);
-  padding: 2px 8px; border-radius: var(--radius-pill);
-}
 
 /* —— B. 投票 + 收藏单卡 —— */
 .vote-block {

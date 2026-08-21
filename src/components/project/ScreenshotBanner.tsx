@@ -4,8 +4,10 @@
  * ScreenshotBanner —— 作品详情页顶部的截图轮播 banner。
  *
  * 交互：
+ *   - 自动轮播（每 5s 切换，鼠标悬停暂停）；
  *   - 左右箭头切换、底部指示器点击跳转；
  *   - 键盘 ← / → 切换；
+ *   - 切图时淡入动画；
  *   - 当前图序号「第 x / N」与标题；
  *   - 居中裁切展示（object-fit: contain，背景柔和）。
  *
@@ -16,6 +18,9 @@ import * as React from 'react';
 
 import { screenshotUrl } from '@/components/upload/ScreenshotUploader';
 
+/** 自动轮播间隔（毫秒）。 */
+const AUTOPLAY_MS = 5000;
+
 export interface ScreenshotBannerProps {
   /** 截图文件名数组（按顺序）。 */
   screenshots: string[];
@@ -25,17 +30,24 @@ export interface ScreenshotBannerProps {
 
 /** 渲染截图轮播。 */
 export function ScreenshotBanner({ screenshots, title }: ScreenshotBannerProps): React.JSX.Element | null {
-  const [index, setIndex] = React.useState<number>(0);
   const total = screenshots.length;
+  const [index, setIndex] = React.useState<number>(0);
+  const [paused, setPaused] = React.useState<boolean>(false);
   if (total === 0) return null;
 
   const go = React.useCallback(
     (next: number): void => {
-      const normalized = ((next % total) + total) % total;
-      setIndex(normalized);
+      setIndex(((next % total) + total) % total);
     },
     [total],
   );
+
+  /** 自动轮播：多张且未悬停时按间隔切换。 */
+  React.useEffect(() => {
+    if (total <= 1 || paused) return;
+    const timer = setInterval(() => setIndex((value) => (value + 1) % total), AUTOPLAY_MS);
+    return () => clearInterval(timer);
+  }, [total, paused]);
 
   /** 键盘左右切换。 */
   React.useEffect(() => {
@@ -50,10 +62,18 @@ export function ScreenshotBanner({ screenshots, title }: ScreenshotBannerProps):
   const current = screenshots[index]!;
 
   return (
-    <div className="banner" aria-roledescription="carousel" aria-label={`${title} 截图轮播`}>
+    <div
+      className="banner"
+      aria-roledescription="carousel"
+      aria-label={`${title} 截图轮播`}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
       <a className="banner__stage" href={screenshotUrl(current)} target="_blank" rel="noopener noreferrer" aria-label="查看原图">
+        {/* key=index 使切图时重新挂载，触发淡入动画 */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
+          key={index}
           src={screenshotUrl(current)}
           alt={`${title} 截图 ${index + 1}`}
           loading={index === 0 ? 'eager' : 'lazy'}
