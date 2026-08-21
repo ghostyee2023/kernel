@@ -67,6 +67,11 @@ interface DemoSpec {
   createdDaysAgo: number;
   authorAlias: string;
   viewCount: number;
+  /**
+   * 截图文件名（与 `public/screenshots/` 内一一对应；`/api/screenshots/[file]` 后端 miss
+   * 时会兜底到这里）。文件名遵守路由白名单 `^[0-9a-f]{16}\.(jpg|png|webp|gif)$`。
+   */
+  screenshots: string[];
 }
 
 const DEMOS: readonly DemoSpec[] = [
@@ -88,6 +93,7 @@ const DEMOS: readonly DemoSpec[] = [
     createdDaysAgo: 12,
     authorAlias: '寇豆码',
     viewCount: 1284,
+    screenshots: ['a1b2c3d4e5f60101.png', 'a1b2c3d4e5f60102.png', 'a1b2c3d4e5f60103.png'],
   },
   {
     slug: 'NebuLa42',
@@ -107,6 +113,7 @@ const DEMOS: readonly DemoSpec[] = [
     createdDaysAgo: 25,
     authorAlias: '寇豆码',
     viewCount: 763,
+    screenshots: ['b2c3d4e5f6a70201.png', 'b2c3d4e5f6a70202.png', 'b2c3d4e5f6a70203.png'],
   },
   {
     slug: 'PuLse7Kd',
@@ -126,6 +133,7 @@ const DEMOS: readonly DemoSpec[] = [
     createdDaysAgo: 3,
     authorAlias: '寇豆码',
     viewCount: 208,
+    screenshots: ['c3d4e5f6a7b80301.png', 'c3d4e5f6a7b80302.png', 'c3d4e5f6a7b80303.png'],
   },
 ];
 
@@ -330,6 +338,8 @@ async function seedProject(prisma: PrismaClient, spec: DemoSpec): Promise<void> 
     authorAlias: spec.authorAlias,
     authorId: LOCAL_DEMO_USER_ID,
     createdAt,
+    // 截图文件名 JSON 串（与 ProjectMeta.screenshots 解析格式一致）
+    screenshots: JSON.stringify(spec.screenshots),
   };
 
   const project = await prisma.project.upsert({

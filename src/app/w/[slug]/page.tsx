@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
 import { Avatar, Badge } from '@/components/ui';
+import { ScreenshotBanner } from '@/components/project/ScreenshotBanner';
 import { VoteFavoriteBlock } from '@/components/project/VoteFavoriteBlock';
 import { WorkPreview } from '@/components/project/WorkPreview';
 import { MobileVoteBar, ProjectMetaPanel, ShareCard } from '@/components/project';
@@ -156,9 +157,11 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
         <div className="detail">
           <section className="detail__main" aria-label="作品预览与介绍">
-            {/* 统一预览：截图轮播 / 沙箱运行 切换（外链时展示提示） */}
+            {/* 顶部截图轮播 banner（有截图时显示） */}
+            <ScreenshotBanner screenshots={project.screenshots} title={project.title} />
+
+            {/* 统一预览：隔离沙箱运行（外链时展示提示） */}
             <WorkPreview
-              screenshots={project.screenshots}
               sandboxUrl={targetUrl}
               displayUrl={displayShortLink(slug)}
               title={project.title}

@@ -7,8 +7,14 @@
  * 存储双后端：本地 fs（.kernel-data/screenshots/）读磁盘；
  * 云模式（Vercel Blob）经 `getBlob` 读取（截图上传时已写 Blob）。
  *
+ * 兜底：后端 miss 时读 `public/screenshots/{file}`，让 demo 截图在「无 Blob token」
+ * 的部署（Vercel production 但未配 Blob）以及「本地 `.kernel-data` 为空」场景下
+ * 仍能由仓库内置静态资源出图（demo 作品唯一来源）。
+ *
  * 缓存：截图文件名不可变 → `public, max-age=31536000, immutable`。
  */
+
+import * as path from 'node:path';
 
 import { getBlob } from '@/lib/blob';
 import { toErrorResponse } from '@/lib/response';
@@ -27,6 +33,11 @@ const CONTENT_TYPES: Record<string, string> = {
   gif: 'image/gif',
 };
 
+/** 兜底：仓库内置 demo 截图（`public/screenshots/`，与路由 FILE_RE 同白名单）。 */
+function publicScreenshotPath(file: string): string {
+  return path.join(process.cwd(), 'public', 'screenshots', file);
+}
+
 export async function GET(
   _request: Request,
   context: { params: Promise<{ file: string }> },
@@ -37,29 +48,39 @@ export async function GET(
       return new Response('Not Found', { status: 404 });
     }
 
-    let buffer: Buffer;
+    const ext = file.slice(file.lastIndexOf('.') + 1);
+    const contentType = CONTENT_TYPES[ext] ?? 'application/octet-stream';
+    const buildResponse = (buffer: Buffer): Response =>
+      new Response(new Uint8Array(buffer), {
+        status: 200,
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=31536000, immutable',
+        },
+      });
+
+    // 1) 后端（Blob / 本地 .kernel-data/screenshots/）
     if (isBlobBackend()) {
       try {
-        buffer = await getBlob(screenshotBlobPath(file));
+        const buffer = await getBlob(screenshotBlobPath(file));
+        return buildResponse(buffer);
       } catch {
-        return new Response('Not Found', { status: 404 });
+        // 落到下方 public 兜底
       }
     } else {
       const absPath = screenshotFilePath(file);
-      if (!(await pathExists(absPath))) {
-        return new Response('Not Found', { status: 404 });
+      if (await pathExists(absPath)) {
+        return buildResponse(await readFileBuffer(absPath));
       }
-      buffer = await readFileBuffer(absPath);
     }
 
-    const ext = file.slice(file.lastIndexOf('.') + 1);
-    return new Response(new Uint8Array(buffer), {
-      status: 200,
-      headers: {
-        'Content-Type': CONTENT_TYPES[ext] ?? 'application/octet-stream',
-        'Cache-Control': 'public, max-age=31536000, immutable',
-      },
-    });
+    // 2) public 兜底（demo 截图，全环境可见）
+    const publicAbs = publicScreenshotPath(file);
+    if (await pathExists(publicAbs)) {
+      return buildResponse(await readFileBuffer(publicAbs));
+    }
+
+    return new Response('Not Found', { status: 404 });
   } catch (error) {
     return toErrorResponse(error, 'screenshots:get');
   }
