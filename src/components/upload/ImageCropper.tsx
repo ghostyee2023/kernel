@@ -4,7 +4,7 @@
  * 交互模型：
  *   - 原图居中铺在画布内，滚轮 / +/- 按钮缩放（围绕画布中心，最小 cover、最大 3x）；
  *   - 裁剪框：拖拽内部移动；拖拽四角手柄调整大小；
- *   - 比例预设：自由 / 1:1 / 4:3 / 16:9（切换时以当前宽度为基准、中心锁定重算高度）；
+ *   - 比例预设：自由 / 1:1 / 3:4 / 4:3 / 16:9（切换时以当前宽度为基准、中心锁定重算高度）；
  *   - 确认：按裁剪框在图片像素上的映射区域输出（最长边 ≤ 1600px）→ WebP Blob。
  *
  * 坐标约定：全部交互在画布坐标（CSS 像素）进行；输出时换算回图片像素。
@@ -13,8 +13,8 @@
 import * as React from 'react';
 
 /** 比例预设。 */
-type RatioKey = 'free' | '1:1' | '4:3' | '16:9';
-const RATIOS: Record<Exclude<RatioKey, 'free'>, number> = { '1:1': 1, '4:3': 4 / 3, '16:9': 16 / 9 };
+type RatioKey = 'free' | '1:1' | '3:4' | '4:3' | '16:9';
+const RATIOS: Record<Exclude<RatioKey, 'free'>, number> = { '1:1': 1, '3:4': 3 / 4, '4:3': 4 / 3, '16:9': 16 / 9 };
 
 /** 组件属性。 */
 export interface ImageCropperProps {
@@ -55,7 +55,7 @@ export function ImageCropper({ file, onCancel, onConfirm }: ImageCropperProps): 
   const cropRef = React.useRef(crop);
   cropRef.current = crop;
 
-  const [ratio, setRatio] = React.useState<RatioKey>('4:3');
+  const [ratio, setRatio] = React.useState<RatioKey>('3:4');
   const ratioRef = React.useRef(ratio);
   ratioRef.current = ratio;
 
@@ -303,7 +303,7 @@ export function ImageCropper({ file, onCancel, onConfirm }: ImageCropperProps): 
       </div>
       <div className="cropper__bar">
         <div className="cropper__ratios" role="group" aria-label="裁剪比例">
-          {(['free', '1:1', '4:3', '16:9'] as RatioKey[]).map((key) => (
+          {(['free', '1:1', '3:4', '4:3', '16:9'] as RatioKey[]).map((key) => (
             <button
               key={key}
               type="button"

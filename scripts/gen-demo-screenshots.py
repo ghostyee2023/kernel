@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""生成 Kernel demo 作品的截图轮播图（16:9 PNG，存放 public/screenshots/）。
+"""生成 Kernel demo 作品的截图轮播图（3:4 PNG，存放 public/screenshots/）。
 
 文件名遵守路由白名单：16 位小写 hex + .png（对应 ^[0-9a-f]{16}\\.(jpg|png|webp|gif)$）。
+比例与详情页 banner、上传裁剪器默认比例（3:4）保持一致。
 仅用于本地/部署时的 demo 填充，不进入运行期逻辑。
 """
 import os
@@ -11,7 +12,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "public", "screenshots")
 os.makedirs(OUT, exist_ok=True)
 
-W, H = 1280, 720
+# 3:4 竖版（与详情页 banner / 裁剪器默认比例一致）
+W, H = 960, 1280
 BAR = 48  # 浏览器顶栏高
 
 FONT_PATHS = [
@@ -19,6 +21,7 @@ FONT_PATHS = [
     r"C:\Windows\Fonts\msyhbd.ttc",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
 ]
+
 
 def load_font(size, bold=False):
     for fp in FONT_PATHS:
@@ -28,6 +31,7 @@ def load_font(size, bold=False):
             except Exception:
                 pass
     return ImageFont.load_default()
+
 
 F_TITLE = load_font(40, bold=True)
 F_SUB = load_font(22)
@@ -59,7 +63,6 @@ def browser_bar(draw, url, accent):
     box = (120, 10, W - 120, BAR - 10)
     round_rect(draw, box, 8, fill=(28, 31, 38))
     draw.text((box[0] + pad, box[1] + 9), url, font=F_URL, fill=(150, 158, 172))
-    # 右侧刷新/菜单点
     for i in range(3):
         cx = W - 36 - i * 18
         draw.ellipse([(cx - 3, BAR // 2 - 3), (cx + 3, BAR // 2 + 3)], fill=(90, 96, 110))
@@ -90,23 +93,25 @@ def aurora(variant):
     d = ImageDraw.Draw(img)
     vgradient(d, AUR_TOP, AUR_BOT)
     browser_bar(d, "aurora-field.kernel.dev", AUR_ACC)
-    # 粒子点模拟
+    d.text((40, BAR + 30), "Aurora Field 极光粒子场", font=F_TITLE, fill=AUR_TXT)
+    subs = ["Canvas 2D · 零依赖零构建", "鼠标施加反平方斥力", "粒子数 / 速度 / 混合模式"]
+    d.text((40, BAR + 84), subs[variant], font=F_SUB, fill=(167, 243, 208))
+    # 粒子面板（中部竖版主视觉）
+    px0, py0, px1, py1 = (40, 200, W - 40, H - 300)
+    round_rect(d, (px0, py0, px1, py1), 16, fill=(10, 24, 21))
     import random
     random.seed(100 + variant)
-    for _ in range(140):
-        x = random.randint(40, W - 40)
-        y = random.randint(BAR + 40, H - 40)
+    shades = [(52, 211, 153), (110, 231, 183), (30, 160, 120)]
+    for _ in range(220):
+        x = random.randint(px0 + 24, px1 - 24)
+        y = random.randint(py0 + 24, py1 - 24)
         r = random.randint(1, 4)
-        a = random.randint(60, 200)
-        d.ellipse([(x - r, y - r), (x + r, y + r)], fill=(52, 211, 153, a)[:3])
+        d.ellipse([(x - r, y - r), (x + r, y + r)], fill=random.choice(shades))
+    # 底部两个 KPI 卡
     titles = ["极光粒子场", "流场扰动", "调参面板"]
-    subs = ["Canvas 2D · 零依赖零构建", "鼠标施加反平方斥力", "粒子数 / 速度 / 混合模式"]
-    d.text((40, BAR + 28), "Aurora Field 极光粒子场", font=F_TITLE, fill=AUR_TXT)
-    d.text((40, BAR + 82), subs[variant], font=F_SUB, fill=(167, 243, 208))
-    # 卡片
-    card(d, (40, H - 180, 420, H - 60), (16, 40, 36), titles[variant], "实时演化的三色流体")
-    card(d, (460, H - 180, 840, H - 60), (16, 40, 36), "60 fps", "devicePixelRatio 自适应")
-    card(d, (860, H - 180, W - 40, H - 60), (16, 40, 36), "≈300 粒子", "沿流线漂移")
+    cy0, cy1 = H - 260, H - 120
+    card(d, (40, cy0, (W - 60) // 2, cy1), (16, 40, 36), titles[variant], "实时演化的三色流体")
+    card(d, ((W - 40 + 40) // 2 + 20, cy0, W - 40, cy1), (16, 40, 36), "60 fps", "devicePixelRatio 自适应")
     return img
 
 
@@ -121,28 +126,38 @@ def nebula(variant):
     d = ImageDraw.Draw(img)
     vgradient(d, NEB_TOP, NEB_BOT)
     browser_bar(d, "nebula-landing.kernel.dev", NEB_ACC)
-    d.text((40, BAR + 28), "Nebula 一页式落地页", font=F_TITLE, fill=NEB_TXT)
+    d.text((40, BAR + 30), "Nebula 一页式落地页", font=F_TITLE, fill=NEB_TXT)
     sections = [
-        ("Hero", "clamp() 流体排版 · 首屏 14KB", ["特性", "数据", "定价", "页脚"]),
-        ("Features", "纯 CSS 动效 · 尊重 reduced-motion", ["零依赖", "双击即开", "响应式"]),
-        ("Pricing", "两个文件就是部署单元", ["免费", "Pro", "团队"]),
+        ("Hero", "clamp() 流体排版 · 首屏 14KB"),
+        ("Features", "纯 CSS 动效 · 尊重 reduced-motion"),
+        ("Pricing", "两个文件就是部署单元"),
     ]
-    title, sub, chips = sections[variant]
-    d.text((40, BAR + 82), sub, font=F_SUB, fill=(240, 200, 250))
-    # chips
+    title, sub = sections[variant]
+    d.text((40, BAR + 84), sub, font=F_SUB, fill=(240, 200, 250))
+    chips_map = {
+        0: ["特性", "数据", "定价", "页脚"],
+        1: ["零依赖", "双击即开", "响应式"],
+        2: ["免费", "Pro", "团队"],
+    }
     x = 40
-    for c in chips:
+    for c in chips_map[variant]:
         w = F_SMALL.getlength(c) + 28
         round_rect(d, (x, BAR + 124, x + w, BAR + 156), 16, fill=(60, 20, 80))
         d.text((x + 14, BAR + 132), c, font=F_SMALL, fill=NEB_TXT)
         x += w + 12
-    # 内容块
-    card(d, (40, H - 230, W - 40, H - 150), (40, 16, 60), title, sub)
-    # 三栏
-    cw = (W - 80 - 40) // 3
+    # Hero 大块
+    round_rect(d, (40, 200, W - 40, 560), 16, fill=(40, 16, 60))
+    d.text((64, 232), "Nebula", font=F_TITLE, fill=NEB_TXT)
+    d.text((64, 288), "一页式落地页 · 14KB 首屏", font=F_SUB, fill=(240, 200, 250))
+    # 三个堆叠模块行
+    mods = ["模块一 · 流体排版", "模块二 · 零依赖动效", "模块三 · 双文件部署"]
     for i in range(3):
-        bx = 40 + i * (cw + 20)
-        card(d, (bx, H - 140, bx + cw, H - 60), (50, 22, 72), f"模块 {i+1}", "纯静态 · 无 JS")
+        y = 600 + i * 100
+        round_rect(d, (40, y, W - 40, y + 84), 12, fill=(50, 22, 72))
+        d.text((64, y + 28), mods[i], font=F_SUB, fill=NEB_TXT)
+        d.text((64, y + 56), "纯静态 · 无 JS", font=F_SMALL, fill=(210, 170, 230))
+    # 底部定价卡
+    card(d, (40, H - 200, W - 40, H - 60), (40, 16, 60), title, sub)
     return img
 
 
@@ -157,39 +172,42 @@ def pulse(variant):
     d = ImageDraw.Draw(img)
     vgradient(d, PUL_TOP, PUL_BOT)
     browser_bar(d, "pulse-dashboard.kernel.dev", PUL_ACC)
-    d.text((40, BAR + 28), "Pulse 部署脉搏仪表盘", font=F_TITLE, fill=PUL_TXT)
+    d.text((40, BAR + 30), "Pulse 部署脉搏仪表盘", font=F_TITLE, fill=PUL_TXT)
+    d.text((40, BAR + 84), "实时可观测的部署脉搏", font=F_SUB, fill=(180, 235, 250))
     # 侧栏
-    round_rect(d, (40, BAR + 80, 220, H - 40), 12, fill=(12, 26, 48))
+    round_rect(d, (40, 200, 220, H - 260), 12, fill=(12, 26, 48))
     for i in range(5):
-        round_rect(d, (56, BAR + 100 + i * 44, 204, BAR + 132 + i * 44), 8, fill=(20, 40, 70))
-    # 主区折线
+        round_rect(d, (56, 224 + i * 44, 204, 256 + i * 44), 8, fill=(20, 40, 70))
+    # 主面板
+    mx0, my0, mx1, my1 = (240, 200, W - 40, H - 300)
+    round_rect(d, (mx0, my0, mx1, my1), 12, fill=(12, 30, 56))
     if variant == 0:
-        pts = [(260, 360), (360, 300), (460, 340), (560, 240), (660, 280), (760, 200), (860, 250),
-               (960, 180), (1060, 210), (1180, 160)]
-        round_rect(d, (260, BAR + 80, W - 40, H - 200), 12, fill=(12, 30, 56))
+        pts = [
+            (mx0 + 30, my0 + 130), (mx0 + 120, my0 + 70), (mx0 + 210, my0 + 110),
+            (mx0 + 300, my0 + 40), (mx0 + 390, my0 + 80), (mx0 + 480, my0 + 30),
+            (mx0 + 560, my0 + 70),
+        ]
         d.line(pts, fill=PUL_ACC, width=4, joint="curve")
         for p in pts:
             d.ellipse([(p[0] - 4, p[1] - 4), (p[0] + 4, p[1] + 4)], fill=(207, 250, 254))
-        d.text((280, BAR + 96), "部署频率 · 近 30 天", font=F_SUB, fill=PUL_TXT)
+        d.text((mx0 + 20, my0 + 16), "部署频率 · 近 30 天", font=F_SUB, fill=PUL_TXT)
     elif variant == 1:
-        round_rect(d, (260, BAR + 80, W - 40, H - 200), 12, fill=(12, 30, 56))
-        bx = 300
-        for i in range(8):
-            bh = 60 + (i * 37) % 160
-            round_rect(d, (bx, H - 220 - bh, bx + 70, H - 220), 6, fill=PUL_ACC)
-            bx += 100
-        d.text((280, BAR + 96), "构建时长分布", font=F_SUB, fill=PUL_TXT)
+        bx = mx0 + 40
+        for i in range(6):
+            bh = 50 + (i * 47) % 150
+            round_rect(d, (bx, my1 - 40 - bh, bx + 60, my1 - 40), 6, fill=PUL_ACC)
+            bx += 90
+        d.text((mx0 + 20, my0 + 16), "构建时长分布", font=F_SUB, fill=PUL_TXT)
     else:
-        round_rect(d, (260, BAR + 80, W - 40, H - 200), 12, fill=(12, 30, 56))
         for i in range(4):
-            y = BAR + 110 + i * 60
-            round_rect(d, (280, y, W - 60, y + 40), 8, fill=(20, 40, 70))
-            d.text((300, y + 11), f"deploy #{1000 + i*7}  ·  ok  ·  2.{i}.{i+1}", font=F_SMALL, fill=PUL_TXT)
-        d.text((280, BAR + 96), "最近部署", font=F_SUB, fill=PUL_TXT)
-    # KPI 条
-    card(d, (260, H - 180, 470, H - 60), (12, 34, 60), "可用性 99.9%", "滚动 90 天")
-    card(d, (490, H - 180, 700, H - 60), (12, 34, 60), "P95 1.8s", "冷启动已优化")
-    card(d, (720, H - 180, W - 40, H - 60), (12, 34, 60), "12 次/日", "自动发布")
+            y = my0 + 50 + i * 70
+            round_rect(d, (mx0 + 20, y, mx1 - 20, y + 50), 8, fill=(20, 40, 70))
+            d.text((mx0 + 40, y + 15), f"deploy #{1000 + i * 7}  ·  ok  ·  2.{i}.{i + 1}", font=F_SMALL, fill=PUL_TXT)
+        d.text((mx0 + 20, my0 + 16), "最近部署", font=F_SUB, fill=PUL_TXT)
+    # 底部两个 KPI 卡
+    cy0, cy1 = H - 260, H - 120
+    card(d, (40, cy0, (W - 60) // 2, cy1), (12, 34, 60), "可用性 99.9%", "滚动 90 天")
+    card(d, ((W - 40 + 40) // 2 + 20, cy0, W - 40, cy1), (12, 34, 60), "P95 1.8s", "冷启动已优化")
     return img
 
 

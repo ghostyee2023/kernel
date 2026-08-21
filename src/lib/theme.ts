@@ -9,8 +9,8 @@
 /** 主题取值。 */
 export type ThemeName = 'light' | 'dark';
 
-/** 主题持久化使用的 localStorage key（v2：2026-08-18 深色画廊改版，作废旧 key，避免历史 light 偏好覆盖新默认）。 */
-export const THEME_STORAGE_KEY = 'kernel-theme-v2';
+/** 主题持久化使用的 localStorage key（v3：2026-08-21 强制深色为默认，作废旧 v2 key，清除测试期残留的 light 偏好）。 */
+export const THEME_STORAGE_KEY = 'kernel-theme-v3';
 
 /** 写在 `<html data-theme>` 上的属性名。 */
 export const THEME_ATTRIBUTE = 'data-theme';

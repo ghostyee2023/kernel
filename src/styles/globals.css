@@ -2806,7 +2806,7 @@
 .banner {
   position: relative; border-radius: 14px; overflow: hidden;
   background: linear-gradient(180deg, #0e1118 0%, #161922 100%);
-  aspect-ratio: 16 / 9; min-height: 260px; margin-bottom: 16px;
+  aspect-ratio: 3 / 4; min-height: 320px; margin-bottom: 16px;
 }
 .banner__stage {
   display: block; width: 100%; height: 100%;
