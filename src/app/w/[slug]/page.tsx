@@ -11,21 +11,15 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
-import {
-  FavoriteHero,
-  MobileVoteBar,
-  PreviewFrame,
-  ProjectMetaPanel,
-  ShareCard,
-  VoteHero,
-} from '@/components/project';
-import { ScreenshotBanner } from '@/components/project/ScreenshotBanner';
 import { Avatar, Badge } from '@/components/ui';
+import { VoteFavoriteBlock } from '@/components/project/VoteFavoriteBlock';
+import { WorkPreview } from '@/components/project/WorkPreview';
+import { MobileVoteBar, ProjectMetaPanel, ShareCard } from '@/components/project';
 import { canManageProject, getSession } from '@/lib/auth';
 import * as campaignService from '@/lib/campaign-service';
 import { PROJECT_STATUS, SITE_URL } from '@/lib/constants';
 import * as favoriteService from '@/lib/favorite-service';
-import { formatCount, truncate } from '@/lib/format';
+import { describeExpiry, formatCount, formatDate, formatDateTime, truncate } from '@/lib/format';
 import * as projectService from '@/lib/project-service';
 import { buildSandboxUrl, displayShortLink } from '@/lib/sandbox';
 import { resolveProjectDir } from '@/lib/storage';
@@ -102,145 +96,183 @@ export default async function ProjectDetailPage({ params }: PageProps) {
   const visibleBadges = campaignBadges.slice(0, 2);
   const extraCount = Math.max(0, campaignBadges.length - 2);
 
+  // 到期提醒：仅当临近（≤7 天或已过期）时显示
+  const expiry = describeExpiry(project.expireAt);
+  const expireNotice =
+    expiry.tone !== 'live'
+      ? `本作品将于 ${formatDateTime(project.expireAt)} 到期，到期后将转为归档状态。`
+      : null;
+
   return (
     <>
       <div className="container-max">
         <nav className="breadcrumb" aria-label="面包屑">
-        <Link href="/">作品广场</Link>
-        <span aria-hidden="true">/</span>
-        <span>{project.title}</span>
-      </nav>
+          <Link href="/">作品广场</Link>
+          <span aria-hidden="true">/</span>
+          <span>{project.title}</span>
+        </nav>
 
-      <header className="detail__head">
-        <div>
-          <h1 className="detail__title">{project.title}</h1>
-          {project.summary ? <p className="detail__summary">{project.summary}</p> : null}
-        </div>
+        {/* —— 头部四层：标题 / 副标题 / byline / 统计 / 到期提醒 —— */}
+        <header className="detail-head">
+          <h1 className="detail-head__title">{project.title}</h1>
+          {project.summary ? <p className="detail-head__sub">{project.summary}</p> : null}
 
-        <div className="detail__meta">
-          <span className="detail__author">
+          <div className="detail-head__byline">
             <Avatar name={project.authorName} />
-            {project.authorName}
-          </span>
-          <span aria-hidden="true">·</span>
-          <span>{formatCount(project.viewCount)} 次浏览</span>
-          <span aria-hidden="true">·</span>
-          <Badge tone={project.status === 'ACTIVE' ? 'live' : 'archived'} dot>
-            {project.status === 'ACTIVE' ? '在线' : '已归档'}
-          </Badge>
-          {project.visibility === 'UNLISTED' ? <Badge tone="unlisted">不公开</Badge> : null}
-          {visibleBadges.length > 0 ? (
-            <span className="detail__campaigns" aria-label="所属活动">
-              {visibleBadges.map((badge) => (
-                <Link key={badge.id} href={`/campaigns/${badge.slug}`} title={badge.title}>
-                  <Badge tone="campaign">{badge.title}</Badge>
-                </Link>
-              ))}
-              {extraCount > 0 ? <Badge tone="campaign">+{extraCount}</Badge> : null}
-            </span>
-          ) : null}
-          {project.tags.length > 0 ? (
-            <span className="detail__campaigns" aria-label="标签">
-              {project.tags.map((tag) => (
-                <Link key={tag.id} href={`/?tag=${tag.slug}`} title={`查看「${tag.name}」标签的作品`}>
-                  <Badge tone={tag.kind === 'activity' ? 'campaign' : 'info'}>#{tag.name}</Badge>
-                </Link>
-              ))}
-            </span>
-          ) : null}
-        </div>
-      </header>
+            <span>{project.authorName}</span>
 
-      <div className="detail">
-        <section className="detail__main" aria-label="作品预览">
-          {/* 顶部 banner：多图截图轮播 / 外链提示 / 沙箱预览 */}
-          {project.screenshots.length > 0 ? (
-            <ScreenshotBanner screenshots={project.screenshots} title={project.title} />
-          ) : isExternal ? (
-            <div className="detail__external">
-              <h2 className="t-title">这是一件外链作品</h2>
-              <p className="muted">
-                内容托管在站外，Kernel 不代为存储、也不做沙箱隔离，请自行确认来源可信。
-              </p>
-              <p className="linkbox">
-                <span title={targetUrl}>{targetUrl}</span>
-              </p>
-              <a
-                className="btn btn-primary"
-                href={targetUrl}
-                target="_blank"
-                rel="noopener noreferrer external"
-              >
-                前往访问
-              </a>
-            </div>
-          ) : (
-            <PreviewFrame src={targetUrl} displayUrl={displayShortLink(slug)} title={project.title} />
-          )}
+            {visibleBadges.length > 0 ? (
+              <>
+                <span className="detail-head__sep" aria-hidden="true">·</span>
+                {visibleBadges.map((badge) => (
+                  <Link key={badge.id} href={`/campaigns/${badge.slug}`} title={badge.title}>
+                    <Badge tone="campaign">{badge.title}</Badge>
+                  </Link>
+                ))}
+                {extraCount > 0 ? <Badge tone="campaign">+{extraCount}</Badge> : null}
+              </>
+            ) : null}
 
-          {/* 作品介绍（紧跟 banner，无边框） */}
-          {project.description ? (
-            <div className="detail__desc">
-              <h2 className="t-title">作品介绍</h2>
-              {/* P0 按纯文本渲染，不解析 Markdown —— 避免引入 XSS 面 */}
-              <p className="prewrap">{project.description}</p>
+            {project.visibility === 'UNLISTED' ? <Badge tone="unlisted">不公开</Badge> : null}
+            {project.status === 'ACTIVE' ? (
+              <Badge tone="live" dot>
+                在线
+              </Badge>
+            ) : null}
+          </div>
+
+          <div className="detail-head__stats">
+            <span>浏览 {formatCount(project.viewCount)}</span>
+            <span>发布 {formatDate(project.createdAt)}</span>
+          </div>
+
+          {expireNotice ? (
+            <div className="detail-head__notice" role="status">
+              <span className="detail-head__notice-dot" aria-hidden="true" />
+              <span>{expireNotice}</span>
             </div>
           ) : null}
-        </section>
+        </header>
 
-        <aside className="detail__side" aria-label="作品信息与操作">
-          {/* 投票 + 收藏（两卡同款视觉，对称布局） */}
-          <div className="vote-hero-stack">
-            <VoteHero
+        <div className="detail">
+          <section className="detail__main" aria-label="作品预览与介绍">
+            {/* 统一预览：截图轮播 / 沙箱运行 切换（外链时展示提示） */}
+            <WorkPreview
+              screenshots={project.screenshots}
+              sandboxUrl={targetUrl}
+              displayUrl={displayShortLink(slug)}
+              title={project.title}
+              isExternal={isExternal}
+              externalUrl={targetUrl}
+              sharePanelId="work-share-details"
+            />
+
+            {/* 作品介绍（紧跟预览，无边框） */}
+            {project.description ? (
+              <div className="detail__desc">
+                <h2 className="t-title">作品介绍</h2>
+                {/* P0 按纯文本渲染，不解析 Markdown —— 避免引入 XSS 面 */}
+                <p className="prewrap">{project.description}</p>
+              </div>
+            ) : null}
+
+            {/* 标签区块：介绍下方独立区块；>6 折叠为 +N */}
+            {project.tags.length > 0 ? (
+              <div className="detail-tags">
+                {project.tags.slice(0, 6).map((tag) => (
+                  <Link
+                    key={tag.id}
+                    href={`/?tag=${tag.slug}`}
+                    className="detail-tags__tag"
+                    title={`查看「${tag.name}」标签的作品`}
+                  >
+                    #{tag.name}
+                  </Link>
+                ))}
+                {project.tags.length > 6 ? (
+                  <span className="detail-tags__tag detail-tags__more" title={`还有 ${project.tags.length - 6} 个标签`}>
+                    +{project.tags.length - 6}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+
+          <aside className="detail__side" aria-label="作品信息与操作">
+            {/* 投票 + 收藏单卡（全页唯一主行动点 · 品红） */}
+            <VoteFavoriteBlock
               slug={slug}
               projectId={project.id}
               voteCount={project.voteCount}
               hasVoted={hasVoted}
-              isLoggedIn={session !== null}
-            />
-            <FavoriteHero
-              slug={slug}
-              projectId={project.id}
               favoriteCount={project.favoriteCount}
-              favorited={hasFavorited}
+              hasFavorited={hasFavorited}
               isLoggedIn={session !== null}
             />
-          </div>
 
-          {/* 主操作：立即访问（外链 → 外站 / 本地 → 沙箱预览） */}
-          <a
-            className="btn btn-primary detail__cta"
-            href={targetUrl}
-            target="_blank"
-            rel="noopener noreferrer external"
-          >
-            立即访问 →
-          </a>
+            {/* 立即访问：主色调快捷入口（与预览区底部「立即访问」互为镜像） */}
+            <a
+              className="visit-btn"
+              href={targetUrl}
+              target="_blank"
+              rel="noopener noreferrer external"
+              aria-label={`在新窗口打开作品《${project.title}》`}
+              title={targetUrl}
+            >
+              <span>立即访问</span>
+              <span className="visit-btn__arrow" aria-hidden="true">↗</span>
+            </a>
 
-          <ShareCard
-            url={targetUrl}
-            displayUrl={shareText}
-            poster={{ title: project.title, slug }}
-          />
+            {/* 分享：可折叠（复制链接 · 二维码 · 海报） */}
+            <details className="work-share" id="work-share-details">
+              <summary className="work-share__summary">
+                <span>复制链接 · 二维码</span>
+                <svg
+                  className="chevron"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </summary>
+              <div className="work-share__body">
+                <ShareCard
+                  url={targetUrl}
+                  displayUrl={shareText}
+                  poster={{ title: project.title, slug }}
+                  boxed={false}
+                />
+              </div>
+            </details>
 
-          {/* 作品信息（短码/文件/体积/可见性等）：仅作者 / 管理员可见 */}
-          {canManageProject(session, project) ? (
-            <ProjectMetaPanel
-              project={project}
-              dirPath={isExternal ? null : resolveProjectDir(slug)}
-            />
-          ) : null}
-        </aside>
+            {/* 作品信息（短码/文件/体积/可见性等）：仅作者 / 管理员可见 */}
+            {canManageProject(session, project) ? (
+              <ProjectMetaPanel
+                project={project}
+                dirPath={isExternal ? null : resolveProjectDir(slug)}
+              />
+            ) : null}
+          </aside>
+        </div>
       </div>
-      </div>
 
-      {/* P3 移动端吸底投票条（≤768px 显示，复用详情页 SSR 已拿到的数据） */}
+      {/* P3 移动端吸底条（≤768px 显示，复用详情页 SSR 已拿到的数据；含收藏） */}
       <MobileVoteBar
         projectId={project.id}
         voteCount={project.voteCount}
         hasVoted={hasVoted}
         isLoggedIn={session !== null}
         loginNext={`/w/${slug}`}
+        slug={slug}
+        favoriteCount={project.favoriteCount}
+        favorited={hasFavorited}
       />
     </>
   );

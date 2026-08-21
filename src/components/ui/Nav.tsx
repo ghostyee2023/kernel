@@ -109,6 +109,7 @@ export function Nav({ sessionUser = null }: NavProps): React.JSX.Element {
                   href={item.href}
                   aria-current={isCurrent(item.href) ? 'page' : undefined}
                 >
+                  {item.href === '/' ? <i className="ri-gallery-line" aria-hidden="true" /> : null}
                   {item.label}
                 </Link>
               ),
@@ -122,6 +123,7 @@ export function Nav({ sessionUser = null }: NavProps): React.JSX.Element {
           {sessionUser ? <UserMenu user={sessionUser} /> : <Link className="btn btn-secondary btn-sm" href="/login">登录</Link>}
 
           <Link className="btn btn-primary btn-sm" href="/new">
+            <i className="ri-upload-2-line" aria-hidden="true" />
             发布作品
           </Link>
 
@@ -174,6 +176,7 @@ export function Nav({ sessionUser = null }: NavProps): React.JSX.Element {
                   </span>
                 ) : (
                   <Link key={item.href} className={cn('nav__drawer-link')} href={item.href}>
+                    {item.href === '/' ? <i className="ri-gallery-line" aria-hidden="true" /> : null}
                     {item.label}
                   </Link>
                 ),
@@ -219,6 +222,7 @@ export function Nav({ sessionUser = null }: NavProps): React.JSX.Element {
                 </Link>
               )}
               <Link className="btn btn-primary" href="/new" style={{ width: '100%' }}>
+                <i className="ri-upload-2-line" aria-hidden="true" />
                 发布作品
               </Link>
             </div>

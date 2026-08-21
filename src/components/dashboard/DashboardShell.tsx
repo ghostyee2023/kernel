@@ -100,21 +100,12 @@ const QUICK_GROUP: readonly DashQuickItem[] = [
   {
     href: '/new',
     label: '发布新作品',
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-        <path d="M12 5v14M5 12h14" />
-      </svg>
-    ),
+    icon: <i className="ri-upload-2-line" aria-hidden="true" />,
   },
   {
     href: '/',
     label: '浏览作品广场',
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-        <circle cx="11" cy="11" r="7" />
-        <path d="m20 20-3-3" />
-      </svg>
-    ),
+    icon: <i className="ri-gallery-line" aria-hidden="true" />,
   },
 ];
 

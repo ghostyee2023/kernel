@@ -1,0 +1,531 @@
+<!-- 设计系统：Kernel·创意种子（Linear + Vercel + Framer 基因） -->
+<!-- 本文件严格复用 Kernel CSS 变量，无硬编码新色值，最大字重 600，品红仅用于投票主按钮与收藏已选态 -->
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>灵感画布 Canvas of Seeds · Kernel 创意种子</title>
+<style>
+/* ============ 设计系统变量（复用 Kernel·创意种子） ============ */
+:root{
+  --color-primary:#4C5BD4;
+  --color-primary-hover:#5D6BE0;
+  --color-primary-active:#3F4DBA;
+  --color-primary-soft:#EEF0FE;
+  --color-primary-border:#C7CDF7;
+  --color-accent-magenta:#E0489A;
+  --text-primary:#0E1014;
+  --text-secondary:#4A5060;
+  --text-tertiary:#838B9B;
+  --surface-canvas:#FFFFFF;
+  --surface-sunken:#F4F5F7;
+  --surface-soft:#FAFAFB;
+  --surface-elevated:#FFFFFF;
+  --border-subtle:#EDEEF2;
+  --border-default:#E1E4EA;
+  --border-strong:#CBD0DA;
+  --shadow-xs:rgba(14,16,20,.04);
+  --shadow-lg:rgba(14,16,20,.12);
+  --shadow-magenta-glow:rgba(224,72,154,.22);
+  --font-sans:'Inter var','Inter','PingFang SC','Microsoft YaHei',sans-serif;
+  --font-mono:'Geist Mono','JetBrains Mono',Consolas,monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --container-max:1280px;
+  --grid-gap:20px;
+  --tint-magenta:rgba(224,72,154,.10);
+  /* 本页新增 2 个 */
+  --detail-gap:32px;
+  --detail-sticky-top:84px;
+  /* L4 状态色（来自设计规范，定义为变量避免硬编码） */
+  --status-warning:#E08A17;
+  --status-info:#2E7CF6;
+  --status-danger:#DC3A47;
+}
+[data-theme="dark"]{
+  --surface-canvas:#0B0C0F;
+  --surface-soft:#101216;
+  --surface-sunken:#131519;
+  --surface-elevated:#17191F;
+  --border-subtle:rgba(30,33,40,.16);
+  --border-default:#272B33;
+  --border-strong:#363B45;
+  --text-primary:#F2F3F5;
+  --text-secondary:#B4BAC6;
+  --text-tertiary:#7C8493;
+  --color-primary:#7F8AF0;
+  --color-primary-soft:#1C1F3A;
+  --color-primary-border:#3A3F6B;
+  --shadow-xs:rgba(0,0,0,.40);
+}
+
+/* ============ 基础重置 ============ */
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--font-sans);
+  background:var(--surface-canvas);
+  color:var(--text-primary);
+  -webkit-font-smoothing:antialiased;
+  font-size:15px;line-height:1.6;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+
+/* ============ 顶部应用栏 ============ */
+.appbar{
+  position:sticky;top:0;z-index:50;
+  height:60px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;background:var(--surface-canvas);
+  border-bottom:1px solid var(--border-subtle);
+}
+.appbar__brand{display:flex;align-items:center;gap:8px;font:600 15px/1 var(--font-sans);color:var(--text-primary);letter-spacing:-.2px}
+.appbar__brand .mark{width:22px;height:22px;border-radius:6px;background:var(--color-primary);display:inline-flex;align-items:center;justify-content:center;color:#fff;font:600 13px/1 var(--font-sans)}
+.appbar__sub{color:var(--text-tertiary);font:500 13px/1 var(--font-sans);margin-left:4px}
+.ghost-btn{
+  display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;
+  border:1px solid var(--border-default);background:transparent;color:var(--text-secondary);
+  border-radius:8px;font:500 13px/1 var(--font-sans);
+  transition:border-color .2s var(--ease),color .2s var(--ease),background .2s var(--ease);
+}
+.ghost-btn:hover{border-color:var(--color-primary-border);color:var(--color-primary);background:var(--color-primary-soft)}
+.ghost-btn svg{flex:0 0 auto}
+.theme-toggle .icon-sun{display:none}
+[data-theme="dark"] .theme-toggle .icon-moon{display:none}
+[data-theme="dark"] .theme-toggle .icon-sun{display:inline-flex}
+
+/* ============ 双栏布局 ============ */
+.detail{
+  max-width:var(--container-max);margin:24px auto 96px;padding:0 24px;
+  display:grid;grid-template-columns:2fr 1fr;gap:var(--detail-gap);align-items:start;
+}
+.content{min-width:0}
+.aside{position:sticky;top:var(--detail-sticky-top);align-self:start;display:flex;flex-direction:column;gap:20px}
+
+/* ============ 头部四层 ============ */
+.head{margin-bottom:20px}
+.head h1{margin:0;font:600 28px/1.2 var(--font-sans);letter-spacing:-.6px;color:var(--text-primary)}
+.head__sub{margin:8px 0 0;font:500 16px/1.5 var(--font-sans);color:var(--text-secondary)}
+.byline{display:flex;align-items:center;gap:8px;margin-top:12px;font:400 14px/1 var(--font-sans);color:var(--text-secondary)}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--color-primary-soft);color:var(--color-primary);display:inline-flex;align-items:center;justify-content:center;font:600 13px/1 var(--font-sans);flex:0 0 auto}
+.byline__sep{color:var(--border-strong)}
+.badge{display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:999px;background:var(--color-primary-soft);color:var(--color-primary);font:500 12px/1 var(--font-sans)}
+.stats{margin-top:10px;font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:13px;color:var(--text-tertiary)}
+.stats span+span:before{content:"·";margin:0 8px;color:var(--border-strong)}
+.notice{display:flex;gap:8px;align-items:center;padding:8px 12px;border-radius:8px;font:400 13px/1.4 var(--font-sans);color:var(--text-secondary);background:var(--surface-sunken);margin-top:14px}
+.notice__dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto;background:var(--status-warning)}
+
+/* ============ 主预览区 ============ */
+.preview{border-radius:14px;border:1px solid var(--border-default);background:var(--surface-sunken);overflow:hidden}
+.browser__bar{display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;background:var(--surface-canvas);border-bottom:1px solid var(--border-subtle)}
+.browser__dots{display:flex;gap:6px}
+.browser__dots i{width:10px;height:10px;border-radius:50%;background:var(--border-strong);display:block}
+.browser__url{flex:1;font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.browser__actions{display:flex;gap:6px}
+.icon-btn{width:30px;height:30px;border-radius:8px;border:1px solid var(--border-default);background:var(--surface-canvas);display:inline-flex;align-items:center;justify-content:center;color:var(--text-tertiary);transition:border-color .2s var(--ease),color .2s var(--ease)}
+.icon-btn:hover{border-color:var(--color-primary-border);color:var(--color-primary)}
+.preview__viewport{position:relative}
+.preview__stage{position:relative;min-height:420px;overflow:hidden}
+.slides{display:flex;transition:transform .4s var(--ease)}
+.slides.is-hidden{display:none}
+.slide{flex:0 0 100%;min-height:420px;display:flex;align-items:center;justify-content:center}
+.slide--1{background:linear-gradient(135deg,var(--color-primary-soft),var(--surface-sunken))}
+.slide--2{background:linear-gradient(135deg,var(--surface-soft),var(--border-subtle))}
+.slide--3{background:linear-gradient(135deg,var(--color-primary-border),var(--surface-sunken))}
+.slide__label{font:500 14px/1 var(--font-mono);color:var(--text-tertiary);background:var(--surface-canvas);border:1px solid var(--border-default);padding:6px 14px;border-radius:999px}
+.preview__iframe{display:none;width:100%;height:420px;border:0;background:var(--surface-sunken)}
+.preview__iframe.is-active{display:block}
+.carousel__nav{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;border:1px solid var(--border-default);background:var(--surface-canvas);display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);box-shadow:var(--shadow-xs);transition:transform .2s var(--ease),color .2s var(--ease),border-color .2s var(--ease),box-shadow .2s var(--ease)}
+.carousel__nav:hover{border-color:var(--color-primary-border);color:var(--color-primary);transform:translateY(-50%) scale(1.06);box-shadow:var(--shadow-lg)}
+.carousel__nav--prev{left:12px}
+.carousel__nav--next{right:12px}
+.carousel__dots{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:6px}
+.carousel__dots i{width:7px;height:7px;border-radius:50%;background:var(--border-strong);cursor:pointer;transition:background .2s var(--ease),width .2s var(--ease)}
+.carousel__dots i.is-active{background:var(--color-primary);width:18px;border-radius:999px}
+.carousel__count{position:absolute;top:12px;right:12px;font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary);background:var(--surface-canvas);border:1px solid var(--border-default);padding:2px 8px;border-radius:999px}
+.preview__foot{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-top:1px solid var(--border-subtle);background:var(--surface-canvas)}
+.visit-link{display:inline-flex;align-items:center;gap:4px;color:var(--color-primary);border:1px solid var(--color-primary-border);border-radius:8px;padding:6px 12px;font:500 13px/1 var(--font-sans);transition:background .2s var(--ease)}
+.visit-link span{display:inline-block;transition:transform .2s var(--ease)}
+.visit-link:hover{background:var(--color-primary-soft)}
+.visit-link:hover span{transform:translateX(2px)}
+.preview__views{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:13px;color:var(--text-tertiary)}
+
+/* ============ 互动块（全页唯一主行动点 · 品红） ============ */
+.vote-block{padding:16px;border:1px solid var(--border-default);border-radius:14px;background:var(--surface-canvas);box-shadow:var(--shadow-xs);display:flex;flex-direction:column;gap:16px;transition:transform .2s var(--ease),box-shadow .2s var(--ease)}
+.vote-block:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.vote-head{display:flex;align-items:baseline;justify-content:space-between}
+.vote-label{font:500 13px/1 var(--font-sans);color:var(--text-tertiary)}
+.vote-num{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:26px;font-weight:600;color:var(--text-primary);line-height:1}
+.vote-actions{display:flex;gap:10px;align-items:center}
+.vote-btn{height:44px;padding:0 20px;border:none;border-radius:999px;background:var(--color-accent-magenta);color:#fff;font:600 15px/1 var(--font-sans);box-shadow:var(--shadow-xs);transition:transform .2s var(--ease),box-shadow .2s var(--ease)}
+.vote-btn:hover{box-shadow:var(--shadow-magenta-glow);transform:translateY(-1px)}
+.vote-btn:active{transform:scale(.97)}
+.vote-btn[data-voted="true"]{opacity:.9}
+.fav-pill{display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 16px;border:1px solid var(--border-default);border-radius:999px;background:var(--surface-canvas);color:var(--text-secondary);font:500 14px/1 var(--font-sans);transition:border-color .2s var(--ease),color .2s var(--ease),background .2s var(--ease)}
+.fav-pill:hover{border-color:var(--color-primary-border);color:var(--color-primary);background:var(--color-primary-soft)}
+.fav-pill[aria-pressed="true"]{color:var(--color-accent-magenta);border-color:var(--tint-magenta);background:var(--tint-magenta)}
+.fav-pill svg{fill:none;stroke:currentColor;stroke-width:2;transition:transform .26s var(--ease)}
+.fav-pill[aria-pressed="true"] svg{fill:currentColor;stroke:var(--color-accent-magenta)}
+.fav-label{font:500 14px/1 var(--font-sans)}
+.fav-num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+
+/* ============ 分享 / 作者 / 技术元数据 ============ */
+.panel{border:1px solid var(--border-subtle);border-radius:14px;background:var(--surface-canvas);transition:transform .2s var(--ease),box-shadow .2s var(--ease)}
+.panel:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+summary{list-style:none;cursor:pointer}
+summary::-webkit-details-marker{display:none}
+.share__summary{display:flex;align-items:center;justify-content:space-between;padding:14px;font:500 14px/1 var(--font-sans);color:var(--text-secondary)}
+.chevron{transition:transform .2s var(--ease);color:var(--text-tertiary)}
+details[open] .chevron{transform:rotate(90deg)}
+.share__body{padding:0 14px 14px;display:flex;flex-direction:column;gap:12px}
+.qr{width:100%;aspect-ratio:1/1;border:2px dashed var(--border-strong);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text-tertiary);font:500 13px/1 var(--font-mono);background:var(--surface-soft)}
+.share__row{display:flex;gap:8px}
+.share__row .ghost-btn{flex:1;justify-content:center}
+
+.author{display:flex;align-items:center;gap:10px;padding:14px;border:1px solid var(--border-subtle);border-radius:14px;background:var(--surface-canvas);transition:transform .2s var(--ease),box-shadow .2s var(--ease)}
+.author:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.author__avatar{width:32px;height:32px;border-radius:50%;background:var(--color-primary-soft);color:var(--color-primary);display:inline-flex;align-items:center;justify-content:center;font:600 14px/1 var(--font-sans);flex:0 0 auto}
+.author__meta{display:flex;flex-direction:column;line-height:1.3;flex:1;min-width:0}
+.author__name{font:500 14px/1.2 var(--font-sans);color:var(--text-primary)}
+.author__act{font:400 12px/1.2 var(--font-sans);color:var(--text-tertiary)}
+.author .ghost-btn{height:32px;padding:0 12px}
+
+.meta-details summary{padding:12px 14px;font:500 13px/1 var(--font-sans);color:var(--text-tertiary);display:flex;align-items:center;justify-content:space-between}
+.meta{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-family:var(--font-mono);font-size:12px;border:1px solid var(--border-subtle);border-radius:8px;padding:12px;background:var(--surface-canvas);margin:0 14px 14px}
+.meta .k{color:var(--text-tertiary)}
+.meta .v{color:var(--text-secondary);word-break:break-all}
+
+/* ============ 微交互动画 ============ */
+@keyframes vote-pop{0%{transform:scale(1)}50%{transform:scale(1.18)}100%{transform:scale(1)}}
+@keyframes heart-pop{0%{transform:scale(1)}50%{transform:scale(1.3)}100%{transform:scale(1)}}
+.vote-num.is-pop{animation:vote-pop .2s var(--ease)}
+.fav-pill svg.is-pop{animation:heart-pop .26s var(--ease)}
+
+/* ============ 作品介绍正文 ============ */
+.intro{max-width:680px;margin-top:28px}
+.intro h2{font:600 18px/1.4 var(--font-sans);color:var(--text-primary);margin:0 0 12px;letter-spacing:-.2px}
+.intro p{font:400 16px/1.75 var(--font-sans);color:var(--text-secondary);margin:0 0 16px}
+
+/* ============ 标签区 ============ */
+.tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:28px;max-width:680px}
+.tag{display:inline-flex;height:24px;padding:0 10px;align-items:center;border:1px solid var(--border-default);border-radius:999px;background:var(--surface-canvas);font:400 12px/1 var(--font-sans);color:var(--text-secondary);transition:border-color .2s var(--ease),color .2s var(--ease),background .2s var(--ease)}
+.tag:hover{border-color:var(--color-primary-border);color:var(--color-primary);background:var(--color-primary-soft)}
+.tag--more{border-style:dashed;color:var(--text-tertiary)}
+
+/* ============ 移动端吸底条 ============ */
+.dock{display:none}
+@media(max-width:768px){
+  .detail{grid-template-columns:1fr;padding:0 16px;gap:24px;margin-top:16px;margin-bottom:88px}
+  .content{display:flex;flex-direction:column}
+  .preview{order:-1}
+  .head{order:0}
+  .intro{order:2}
+  .tags{order:3}
+  .aside{position:static;order:1}
+  .aside .vote-block{display:none}
+  .dock{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:60;align-items:center;gap:10px;padding:10px 16px;background:var(--surface-elevated);border-top:1px solid var(--border-default);box-shadow:0 -4px 16px var(--shadow-xs)}
+  .dock .vote-btn{flex:1}
+  .dock .fav-pill{flex:0 0 auto}
+}
+</style>
+</head>
+<body>
+
+<!-- 顶部应用栏 -->
+<header class="appbar">
+  <div class="appbar__brand">
+    <span class="mark">K</span>
+    <span>Kernel</span>
+    <span class="appbar__sub">创意种子</span>
+  </div>
+  <button class="ghost-btn theme-toggle" id="themeToggle" aria-label="切换明/暗主题" title="切换主题">
+    <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+    <span id="themeLabel">暗</span>
+  </button>
+</header>
+
+<!-- 详情双栏 -->
+<main class="detail">
+  <!-- 左栏：内容 -->
+  <div class="content">
+    <!-- 头部四层 -->
+    <header class="head">
+      <h1>灵感画布 Canvas of Seeds</h1>
+      <p class="head__sub">一件把"种子意象"做成可交互粒子背景的网页作品。</p>
+      <div class="byline">
+        <span class="avatar">林</span>
+        <span>林深</span>
+        <span class="byline__sep">·</span>
+        <span>主活动</span>
+        <span class="badge">Kernel 创意种子大赛</span>
+      </div>
+      <div class="stats">
+        <span>浏览 12,840</span>
+        <span>发布 2026-07-28</span>
+      </div>
+      <!-- L4 异常细条（演示 warning） -->
+      <div class="notice">
+        <span class="notice__dot"></span>
+        <span>本作品将于 2026-09-01 到期，到期后将转为归档状态。</span>
+      </div>
+    </header>
+
+    <!-- 主预览区 -->
+    <section class="preview">
+      <div class="browser__bar">
+        <span class="browser__dots"><i></i><i></i><i></i></span>
+        <span class="browser__url">kernel.seed/works/seed-canvas-7f3a</span>
+        <span class="browser__actions">
+          <button class="icon-btn" id="runBtn" title="运行沙箱" aria-label="运行沙箱">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <button class="icon-btn" id="shareTopBtn" title="分享" aria-label="分享">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg>
+          </button>
+        </span>
+      </div>
+      <div class="preview__viewport">
+        <div class="preview__stage">
+          <div class="slides" id="slides">
+            <div class="slide slide--1"><span class="slide__label">截图 1</span></div>
+            <div class="slide slide--2"><span class="slide__label">截图 2</span></div>
+            <div class="slide slide--3"><span class="slide__label">截图 3</span></div>
+          </div>
+          <iframe class="preview__iframe" id="sandbox" title="沙箱运行环境" src="about:blank"></iframe>
+          <button class="carousel__nav carousel__nav--prev" id="prevBtn" aria-label="上一张">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <button class="carousel__nav carousel__nav--next" id="nextBtn" aria-label="下一张">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+          <span class="carousel__count" id="carouselCount">1/3</span>
+          <div class="carousel__dots" id="carouselDots"><i class="is-active"></i><i></i><i></i></div>
+        </div>
+      </div>
+      <div class="preview__foot">
+        <a class="visit-link" href="#" onclick="return false;">立即访问 <span aria-hidden="true">↗</span></a>
+      </div>
+    </section>
+
+    <!-- 作品介绍 -->
+    <article class="intro">
+      <h2>作品介绍</h2>
+      <p>《灵感画布》的灵感来自一次雨后散步——墙缝里钻出的嫩芽让我想到，每一个创意最初都只是一粒不起眼的种子。于是我想用网页把这种"生长感"具象化：打开页面，种子从中心散开，化作成千上万个缓慢游动的粒子，像被风吹起的蒲公英。</p>
+      <p>技术上它完全基于 HTML5 Canvas 实现，没有借助任何第三方渲染库。粒子系统在一张离屏画布上更新位置与透明度，再合成到主画布；颜色从品牌主色中提取，保证整体调性与 Kernel 一致。整包仅 1.8 MB，移动端也能稳定跑在 60fps 附近。</p>
+      <p>交互上，鼠标移动会扰动附近的粒子形成"气流"，点击则播下一颗新的种子，从落点重新生长出一片粒子丛。你可以把它当作一件会呼吸的背景，也可以当作创作工具，截一张图当作封面。</p>
+    </article>
+
+    <!-- 标签区 -->
+    <div class="tags" id="tagsWrap">
+      <a class="tag" href="#">Canvas</a>
+      <a class="tag" href="#">粒子</a>
+      <a class="tag" href="#">交互</a>
+      <a class="tag" href="#">生成艺术</a>
+      <a class="tag" href="#">网页</a>
+      <a class="tag" href="#">开源</a>
+      <a class="tag" href="#">可视化</a>
+      <a class="tag" href="#">动效</a>
+      <span class="tag tag--more" id="tagMore" hidden>+N</span>
+    </div>
+  </div>
+
+  <!-- 右栏：表态 + 分发 -->
+  <aside class="aside">
+    <!-- 互动块（主行动点） -->
+    <div class="vote-block">
+      <div class="vote-head">
+        <span class="vote-label">当前得票</span>
+        <span class="vote-num" id="voteNum">327</span>
+      </div>
+      <div class="vote-actions">
+        <button class="vote-btn" id="voteBtn" data-voted="false"><span class="vote-text">投一票</span></button>
+        <button class="fav-pill" id="favBtn" aria-pressed="false">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7.5-4.6-10-9.2C.3 8.4 1.9 4.9 5.2 4.3c2-.4 3.8.6 4.8 2.1.4.6.7 1.1.7 1.1s.3-.5.7-1.1c1-1.5 2.8-2.5 4.8-2.1 3.3.6 4.9 4.1 3.2 7.5C19.5 16.4 12 21 12 21z"/></svg>
+          <span class="fav-label">收藏</span>
+          <span class="fav-num">96</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 分享 -->
+    <details class="panel share" id="shareDetails">
+      <summary class="share__summary">
+        <span>复制链接 · 二维码</span>
+        <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="share__body">
+        <div class="qr">二维码</div>
+        <div class="share__row">
+          <button class="ghost-btn" id="copyLink">复制链接</button>
+          <button class="ghost-btn" id="posterBtn">下载分享海报</button>
+        </div>
+      </div>
+    </details>
+
+    <!-- 作者卡（条件显示） -->
+    <div class="author">
+      <span class="author__avatar">林</span>
+      <div class="author__meta">
+        <span class="author__name">林深</span>
+        <span class="author__act">Kernel 创意种子大赛</span>
+      </div>
+      <button class="ghost-btn" id="followBtn">关注</button>
+    </div>
+
+    <!-- 技术元数据（仅作者/管理员，默认折叠） -->
+    <details class="panel meta-details">
+      <summary>
+        <span>技术元数据 · 仅作者可见</span>
+        <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="meta">
+        <span class="k">短码</span><span class="v">seed-canvas-7f3a</span>
+        <span class="k">来源</span><span class="v">ZIP 压缩包</span>
+        <span class="k">入口文件</span><span class="v">index.html</span>
+        <span class="k">文件数</span><span class="v">12</span>
+        <span class="k">体积</span><span class="v">1.8 MB</span>
+        <span class="k">可见性</span><span class="v">公开（展示在广场）</span>
+        <span class="k">发布时间</span><span class="v">2026-07-28 14:20</span>
+        <span class="k">到期时间</span><span class="v">2026-09-01 00:00</span>
+      </div>
+    </details>
+  </aside>
+</main>
+
+<!-- 移动端吸底互动条 -->
+<nav class="dock" id="dock">
+  <button class="vote-btn" id="dockVote" data-voted="false"><span class="vote-text">投一票</span> · <span class="vote-num">327</span></button>
+  <button class="fav-pill" id="dockFav" aria-pressed="false">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7.5-4.6-10-9.2C.3 8.4 1.9 4.9 5.2 4.3c2-.4 3.8.6 4.8 2.1.4.6.7 1.1.7 1.1s.3-.5.7-1.1c1-1.5 2.8-2.5 4.8-2.1 3.3.6 4.9 4.1 3.2 7.5C19.5 16.4 12 21 12 21z"/></svg>
+    <span class="fav-label">收藏</span>
+    <span class="fav-num">96</span>
+  </button>
+</nav>
+
+<script>
+(function(){
+  var root=document.documentElement;
+
+  /* 主题切换 */
+  var tBtn=document.getElementById('themeToggle');
+  var tLabel=document.getElementById('themeLabel');
+  tBtn.addEventListener('click',function(){
+    var dark=root.getAttribute('data-theme')==='dark';
+    root.setAttribute('data-theme',dark?'light':'dark');
+    tLabel.textContent=dark?'暗':'明';
+  });
+
+  /* 截图轮播 */
+  var slides=document.getElementById('slides');
+  var dots=document.getElementById('carouselDots');
+  var countEl=document.getElementById('carouselCount');
+  var total=3,idx=0;
+  function go(i){
+    idx=(i+total)%total;
+    slides.style.transform='translateX('+(-idx*100)+'%)';
+    countEl.textContent=(idx+1)+'/'+total;
+    Array.prototype.forEach.call(dots.children,function(d,k){d.classList.toggle('is-active',k===idx);});
+  }
+  document.getElementById('prevBtn').addEventListener('click',function(){go(idx-1);});
+  document.getElementById('nextBtn').addEventListener('click',function(){go(idx+1);});
+  Array.prototype.forEach.call(dots.children,function(d,k){d.addEventListener('click',function(){go(k);});});
+
+  /* 运行 / 停止 沙箱 */
+  var runBtn=document.getElementById('runBtn');
+  var iframe=document.getElementById('sandbox');
+  var running=false;
+  runBtn.addEventListener('click',function(){
+    running=!running;
+    if(running){
+      slides.classList.add('is-hidden');
+      iframe.classList.add('is-active');
+      runBtn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>';
+    }else{
+      slides.classList.remove('is-hidden');
+      iframe.classList.remove('is-active');
+      runBtn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+    }
+  });
+
+  /* 投票 + 收藏 共享状态 */
+  var state={voted:false,votes:327,faved:false,favs:96};
+function render(){
+  ['voteBtn','dockVote'].forEach(function(id){
+    var b=document.getElementById(id); if(!b)return;
+    b.setAttribute('data-voted',state.voted?'true':'false');
+    b.querySelector('.vote-text').textContent=state.voted?'已投票':'投一票';
+    var n=b.querySelector('.vote-num'); if(n)n.textContent=state.votes.toLocaleString('en-US');
+  });
+  ['favBtn','dockFav'].forEach(function(id){
+    var b=document.getElementById(id); if(!b)return;
+    b.setAttribute('aria-pressed',state.faved?'true':'false');
+    var lbl=b.querySelector('.fav-label'); if(lbl)lbl.textContent=state.faved?'已收藏':'收藏';
+    b.querySelector('.fav-num').textContent=state.favs.toLocaleString('en-US');
+  });
+}
+function toggleVote(){state.voted=!state.voted;state.votes+=state.voted?1:-1;render();popVote();}
+function toggleFav(){state.faved=!state.faved;state.favs+=state.faved?1:-1;render();popFav();}
+function popVote(){
+  ['voteBtn','dockVote'].forEach(function(id){
+    var b=document.getElementById(id); if(!b)return;
+    var n=b.querySelector('.vote-num'); if(!n)return;
+    n.classList.remove('is-pop'); void n.offsetWidth; n.classList.add('is-pop');
+  });
+}
+function popFav(){
+  ['favBtn','dockFav'].forEach(function(id){
+    var b=document.getElementById(id); if(!b)return;
+    var s=b.querySelector('svg'); if(!s)return;
+    s.classList.remove('is-pop'); void s.offsetWidth; s.classList.add('is-pop');
+  });
+}
+  document.getElementById('voteBtn').addEventListener('click',toggleVote);
+  document.getElementById('dockVote').addEventListener('click',toggleVote);
+  document.getElementById('favBtn').addEventListener('click',toggleFav);
+  document.getElementById('dockFav').addEventListener('click',toggleFav);
+  render();
+
+  /* 标签 >6 折叠为 +N */
+  var tagsWrap=document.getElementById('tagsWrap');
+  var tags=Array.prototype.slice.call(tagsWrap.querySelectorAll('.tag'));
+  var morePill=document.getElementById('tagMore');
+  if(tags.length>6){
+    for(var i=6;i<tags.length;i++){tags[i].style.display='none';}
+    morePill.textContent='+'+(tags.length-6);
+    morePill.hidden=false;
+  }
+
+  /* 复制链接 */
+  var copyBtn=document.getElementById('copyLink');
+  copyBtn.addEventListener('click',function(){
+    var url=window.location.href;
+    function flash(t){var o=copyBtn.textContent;copyBtn.textContent=t;setTimeout(function(){copyBtn.textContent=o;},1400);}
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(function(){flash('已复制');},function(){flash('已复制');});
+    }else{flash('已复制');}
+  });
+
+  /* 分享海报 */
+  document.getElementById('posterBtn').addEventListener('click',function(){
+    var o=this.textContent;this.textContent='已生成';var self=this;
+    setTimeout(function(){self.textContent=o;},1400);
+  });
+
+  /* 顶部分享图标展开分享面板 */
+  document.getElementById('shareTopBtn').addEventListener('click',function(){
+    document.getElementById('shareDetails').open=true;
+  });
+
+  /* 关注切换 */
+  var followBtn=document.getElementById('followBtn');
+  followBtn.addEventListener('click',function(){
+    var on=followBtn.textContent==='已关注';
+    followBtn.textContent=on?'关注':'已关注';
+    followBtn.style.color=on?'':'var(--color-primary)';
+    followBtn.style.borderColor=on?'':'var(--color-primary-border)';
+  });
+})();
+</script>
+</body>
+</html>

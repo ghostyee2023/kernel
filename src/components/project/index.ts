@@ -13,9 +13,6 @@ export type { ExpiryBadgeProps } from './ExpiryBadge';
 export { FavoriteButton } from './FavoriteButton';
 export type { FavoriteButtonProps } from './FavoriteButton';
 
-export { FavoriteHero } from './FavoriteHero';
-export type { FavoriteHeroProps } from './FavoriteHero';
-
 export { PlazaFilterBar } from './PlazaFilterBar';
 export type { PlazaFilterBarProps } from './PlazaFilterBar';
 
@@ -39,5 +36,3 @@ export type { ShareCardProps } from './ShareCard';
 
 export { SharePoster } from './SharePoster';
 export type { SharePosterProps } from './SharePoster';
-
-export { VoteHero } from './VoteHero';

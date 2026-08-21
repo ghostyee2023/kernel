@@ -5,7 +5,7 @@
  * 搜索与翻页状态全部放在 URL 上，`<Suspense>` 只包住读 searchParams 的客户端筛选条。
  *
  * 性能优化（P2 缓存 + P1 异步）：
- *   - 公开只读查询（list / stats / selectable）走 Next Data Cache（unstable_cache），
+ *   - 公开只读查询（list / selectable）走 Next Data Cache（unstable_cache），
  *     跨实例共享、revalidateTag 精确失效，热态命中缓存 TTFB 显著下降。
  *   - per-user 收藏集合不再在 SSR 阻塞：卡片星标改为客户端挂载后批量拉取
  *     （GET /api/favorites，模块级缓存整页只发一次），实现「壳先出、星标后补」。
@@ -21,7 +21,6 @@ import { getSession } from '@/lib/auth';
 import * as campaignService from '@/lib/campaign-service';
 import * as tagService from '@/lib/tag-service';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
-import { formatBytes, formatCount } from '@/lib/format';
 import * as projectService from '@/lib/project-service';
 import type { ProjectListQuery } from '@/lib/types';
 
@@ -85,9 +84,8 @@ export default async function PlazaPage({ searchParams }: PageProps) {
   // 卡片星标由客户端挂载后调 GET /api/favorites 批量点亮（壳先出、星标后补）。
   // hero：activeCampaign 判定「限时活动进行中」徽章（collecting/voting 才算，无则整行隐藏）。
   const session = await getSession();
-  const [result, summary, selectable, active, tags] = await Promise.all([
+  const [result, selectable, active, tags] = await Promise.all([
     projectService.list(listQuery),
-    projectService.stats(),
     campaignService.listSelectable(),
     campaignService.activeCampaign(),
     tagService.listPublicTags(),
@@ -122,26 +120,13 @@ export default async function PlazaPage({ searchParams }: PageProps) {
 
           <div className="hero__actions">
             <Link className="btn btn-primary btn-lg" href="/new">
+              <i className="ri-upload-2-line" aria-hidden="true" />
               发布我的作品
             </Link>
             <a className="btn btn-secondary btn-lg" href="#plaza">
+              <i className="ri-gallery-line" aria-hidden="true" />
               先逛逛广场
             </a>
-          </div>
-
-          <div className="hero__stats">
-            <div>
-              <div className="stat__num mono">{formatCount(summary.projects)}</div>
-              <div className="stat__label">在线作品</div>
-            </div>
-            <div>
-              <div className="stat__num mono">{formatCount(summary.views)}</div>
-              <div className="stat__label">累计浏览</div>
-            </div>
-            <div>
-              <div className="stat__num mono">{formatBytes(summary.bytes)}</div>
-              <div className="stat__label">已托管内容</div>
-            </div>
           </div>
         </div>
       </section>

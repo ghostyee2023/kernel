@@ -1142,7 +1142,7 @@
     color: var(--text-secondary); font-weight: 500;
   }
   .detail__main { min-width: 0; display: flex; flex-direction: column; gap: 24px; }
-  .detail__side { min-width: 0; }
+  .detail__side { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
   .detail__desc,
   .detail__external {
     padding: 22px; border: 1px solid var(--border-default); border-radius: var(--radius-card);
@@ -2853,5 +2853,244 @@
 .detail__cta { display: block; width: 100%; margin-top: 8px; padding: 12px; font-size: 15px; }
 .detail__cta:hover { transform: translateY(-1px); }
 
+/* ============================================================================
+   作品详情页重设计（对齐 prototype/work-detail-redesign.html）
+   A. 统一预览 WorkPreview  ·  B. 投票+收藏单卡 VoteFavoriteBlock
+   C. 四层头部  ·  D. 标签区块  ·  E. 移动端吸底收藏
+   全部 token 化，零硬编码色值（hex 仅在 :root / [data-theme="dark"] 定义）
+   ============================================================================ */
+
+/* —— A. 统一预览外壳 —— */
+.work-preview {
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border-default);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+.work-preview__bar {
+  display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px;
+  background: var(--surface-canvas); border-bottom: 1px solid var(--border-subtle);
+}
+.work-preview__dots { display: flex; gap: 6px; }
+.work-preview__dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--border-strong); display: block; }
+.work-preview__url {
+  flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12px;
+  color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.work-preview__actions { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; flex: none; }
+.work-preview__iconbtn {
+  width: 30px; height: 30px; border-radius: var(--radius-btn);
+  border: 1px solid var(--border-default); background: var(--surface-canvas);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-tertiary);
+  transition: border-color .2s var(--ease), color .2s var(--ease), background .2s var(--ease);
+}
+.work-preview__iconbtn:hover { border-color: var(--color-primary-border); color: var(--color-primary); background: var(--color-primary-soft); }
+.work-preview__viewport { position: relative; overflow: hidden; }
+.work-preview__slides { display: flex; transition: transform .4s var(--ease); }
+.work-preview__slides.is-hidden { display: none; }
+.work-preview__slide {
+  flex: 0 0 100%; min-height: 420px; display: flex; align-items: center; justify-content: center;
+  background: var(--surface-soft);
+}
+.work-preview__shot { display: block; width: 100%; height: 100%; }
+.work-preview__shot img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.work-preview__iframe { width: 100%; height: 440px; border: 0; background: var(--surface-canvas); display: block; }
+.work-preview__iframe.is-hidden { display: none; }
+.wp-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 1px solid var(--border-default); background: var(--surface-canvas);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-secondary); box-shadow: var(--shadow-xs);
+  transition: transform .2s var(--ease), color .2s var(--ease), border-color .2s var(--ease), box-shadow .2s var(--ease);
+}
+.wp-nav:hover { border-color: var(--color-primary-border); color: var(--color-primary); transform: translateY(-50%) scale(1.06); box-shadow: var(--shadow-lg); }
+.wp-nav--prev { left: 12px; }
+.wp-nav--next { right: 12px; }
+.wp-dots { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; }
+.wp-dot {
+  width: 7px; height: 7px; border-radius: 50%; border: none; background: var(--border-strong);
+  cursor: pointer; padding: 0; transition: background .2s var(--ease), width .2s var(--ease);
+}
+.wp-dot.is-active { background: var(--color-primary); width: 18px; border-radius: var(--radius-pill); }
+.wp-count {
+  position: absolute; top: 12px; right: 12px;
+  font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary);
+  background: var(--surface-canvas); border: 1px solid var(--border-default);
+  padding: 2px 8px; border-radius: var(--radius-pill);
+}
+
+/* —— B. 投票 + 收藏单卡 —— */
+.vote-block {
+  padding: 16px; border: 1px solid var(--border-default); border-radius: var(--radius-card);
+  background: var(--surface-canvas); box-shadow: var(--shadow-xs);
+  display: flex; flex-direction: column; gap: 16px;
+  transition: transform .2s var(--ease), box-shadow .2s var(--ease);
+}
+.vote-block:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.vote-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.vote-label { font-family: var(--font-sans); font-weight: 500; font-size: 13px; line-height: 1; color: var(--text-tertiary); }
+.vote-num {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 26px; font-weight: 600; line-height: 1; color: var(--text-primary);
+}
+.vote-num.is-pop { animation: numPopVote .2s var(--ease); }
+.vote-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.vote-btn {
+  flex: 0 0 auto;
+  height: 44px; padding: 0 22px; border: none; border-radius: var(--radius-pill);
+  background: var(--color-accent-magenta); color: var(--text-inverse);
+  font-family: var(--font-sans); font-weight: 600; font-size: 15px; line-height: 1;
+  display: inline-flex; align-items: center; gap: 8px;
+  box-shadow: var(--shadow-xs);
+  white-space: nowrap;
+  transition: transform .2s var(--ease), box-shadow .2s var(--ease), opacity .2s var(--ease);
+}
+.vote-btn:hover { box-shadow: var(--shadow-magenta-glow); transform: translateY(-1px); }
+.vote-btn:active { transform: scale(.97); }
+.vote-btn[disabled] { opacity: .6; cursor: not-allowed; }
+.vote-btn[data-voted="true"] { opacity: .9; }
+/* 侧栏「立即访问」：靛蓝主色实心，与「投一票」（品红）「收藏」（灰）形成四级操作位 */
+.visit-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px; height: 44px; width: 100%; padding: 0 22px;
+  border: 1px solid var(--color-primary); border-radius: var(--radius-pill);
+  background: var(--color-primary); color: var(--text-inverse);
+  font-family: var(--font-sans); font-weight: 600; font-size: 15px; line-height: 1;
+  white-space: nowrap; text-decoration: none;
+  box-shadow: var(--shadow-md);
+  transition: transform .2s var(--ease), box-shadow .2s var(--ease), background .2s var(--ease);
+}
+.visit-btn:hover { background: var(--color-primary-hover); border-color: var(--color-primary-hover); transform: translateY(-1px); box-shadow: var(--shadow-lg); }
+.visit-btn:active { transform: scale(.97); background: var(--color-primary-active); border-color: var(--color-primary-active); }
+.visit-btn__arrow { display: inline-block; transition: transform .2s var(--ease); }
+.visit-btn:hover .visit-btn__arrow { transform: translate(2px, -2px); }
+.fav-pill {
+  display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 16px;
+  flex: 0 0 auto; white-space: nowrap;
+  border: 1px solid var(--border-default); border-radius: var(--radius-pill);
+  background: var(--surface-canvas); color: var(--text-secondary);
+  font-family: var(--font-sans); font-weight: 500; font-size: 14px; line-height: 1;
+  transition: border-color .2s var(--ease), color .2s var(--ease), background .2s var(--ease);
+}
+.fav-pill:hover { border-color: var(--color-primary-border); color: var(--color-primary); background: var(--color-primary-soft); }
+.fav-pill[disabled] { opacity: .6; cursor: not-allowed; }
+.fav-pill[aria-pressed="true"] { color: var(--color-accent-magenta); border-color: var(--tint-magenta); background: var(--tint-magenta); }
+.fav-pill svg { fill: none; stroke: currentColor; stroke-width: 2; transition: transform .26s var(--ease); }
+.fav-pill[aria-pressed="true"] svg { fill: currentColor; stroke: var(--color-accent-magenta); }
+.fav-pill svg.is-pop { animation: heartPop .26s var(--ease); }
+.fav-label { font-family: var(--font-sans); font-weight: 500; font-size: 14px; line-height: 1; }
+.fav-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 14px; line-height: 1; }
+
+@keyframes numPopVote { 0% { transform: scale(1); } 50% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@keyframes heartPop { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+
+/* —— C. 四层头部 —— */
+.detail-head { display: flex; flex-direction: column; }
+.detail-head__title {
+  margin: 0; font-family: var(--font-sans); font-weight: 600; font-size: 28px;
+  line-height: 1.2; letter-spacing: -.6px; color: var(--text-primary);
+}
+.detail-head__sub { margin: 8px 0 0; font-family: var(--font-sans); font-weight: 500; font-size: 16px; line-height: 1.5; color: var(--text-secondary); }
+.detail-head__byline {
+  display: flex; align-items: center; gap: 8px; margin-top: 12px;
+  font-family: var(--font-sans); font-size: 14px; line-height: 1; color: var(--text-secondary); flex-wrap: wrap;
+}
+.detail-head__byline .avatar { width: 28px; height: 28px; font-size: 13px; flex: none; }
+.detail-head__sep { color: var(--border-strong); }
+.detail-head__stats { margin-top: 10px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--text-tertiary); }
+.detail-head__stats span + span::before { content: "·"; margin: 0 8px; color: var(--border-strong); }
+.detail-head__notice {
+  display: flex; gap: 8px; align-items: center; padding: 8px 12px;
+  border-radius: var(--radius-btn); font-family: var(--font-sans); font-size: 13px; line-height: 1.4;
+  color: var(--text-secondary); background: var(--surface-sunken); margin-top: 14px;
+}
+.detail-head__notice-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; background: var(--color-warning); }
+
+/* —— D. 标签区块 —— */
+.detail-tags { display: flex; flex-wrap: wrap; gap: 8px; max-width: 680px; }
+.detail-tags__tag {
+  display: inline-flex; height: 28px; padding: 0 12px; align-items: center;
+  border: 1px solid var(--border-default); border-radius: var(--radius-pill);
+  background: var(--surface-canvas); font-family: var(--font-sans); font-size: 13px; line-height: 1;
+  color: var(--text-secondary);
+  transition: border-color .2s var(--ease), color .2s var(--ease), background .2s var(--ease);
+}
+.detail-tags__tag:hover { border-color: var(--color-primary-border); color: var(--color-primary); background: var(--color-primary-soft); }
+.detail-tags__more { border-style: dashed; color: var(--text-tertiary); cursor: default; }
+
+/* —— 分享 / 技术元数据折叠面板（原型 details/summary） —— */
+.work-share {
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-card);
+  background: var(--surface-canvas);
+  transition: transform .2s var(--ease), box-shadow .2s var(--ease);
+}
+.work-share:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.work-share__summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 14px; font-family: var(--font-sans); font-weight: 500; font-size: 14px; line-height: 1;
+  color: var(--text-secondary); cursor: pointer; list-style: none;
+}
+.work-share__summary::-webkit-details-marker { display: none; }
+.chevron { color: var(--text-tertiary); transition: transform .2s var(--ease); flex: none; }
+.work-share[open] .chevron { transform: rotate(90deg); }
+.work-share__body { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 12px; }
+
+/* —— E. 移动端吸底条收藏 —— */
+.mobile-vote-bar__fav {
+  display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 16px;
+  border: 1px solid var(--border-default); border-radius: var(--radius-pill);
+  background: var(--surface-elevated); color: var(--text-secondary);
+  font-family: var(--font-sans); font-weight: 500; font-size: 14px; line-height: 1; flex: none;
+  transition: border-color .2s var(--ease), color .2s var(--ease), background .2s var(--ease);
+}
+.mobile-vote-bar__fav:hover { border-color: var(--color-primary-border); color: var(--color-primary); background: var(--color-primary-soft); }
+.mobile-vote-bar__fav[disabled] { opacity: .6; cursor: not-allowed; }
+.mobile-vote-bar__fav[aria-pressed="true"] { color: var(--color-accent-magenta); border-color: var(--tint-magenta); background: var(--tint-magenta); }
+.mobile-vote-bar__fav svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; transition: transform .26s var(--ease); }
+.mobile-vote-bar__fav[aria-pressed="true"] svg { fill: currentColor; stroke: var(--color-accent-magenta); }
+.mobile-vote-bar__fav svg.is-pop { animation: heartPop .26s var(--ease); }
+.mobile-vote-bar__fav .fav-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 14px; line-height: 1; }
+/* 吸底条投票按钮：复用品红 .vote-btn，横向占满剩余空间（原型 .dock .vote-btn{flex:1}） */
+.mobile-vote-bar .vote-btn { flex: 1; }
+
+/* 移动端：隐藏侧栏的投票+收藏卡（由吸底条接管） */
+@media (max-width: 767px) {
+  .detail__side .vote-block { display: none; }
+}
+
 /* 广场筛选条：排序与搜索并排靠右 */
 .filterbar__right { display: flex; align-items: center; gap: 12px; }
+
+/* ============================================================================
+   Remix Icon 字体图标（2026-08-20 引入，纯 CSS 字体方案，零 JS 运行时）
+   字体文件：public/fonts/remixicon.woff2　|　来源：remixicon npm 包
+   使用：<i className="ri-gallery-line" aria-hidden="true" /> 等
+   单色图标自动继承 currentColor，融入设计令牌主色/文字色
+   ========================================================================== */
+@font-face {
+  font-family: "remixicon";
+  src: url("/fonts/remixicon.woff2") format("woff2");
+  font-display: swap;
+}
+[class^="ri-"], [class*=" ri-"] {
+  font-family: "remixicon" !important;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
+  vertical-align: -0.125em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+/* 当前全站使用的图标（按需增补） */
+.ri-gallery-line:before { content: "\eda5"; }   /* 浏览 / 作品广场 */
+.ri-upload-2-line:before { content: "\f24a"; }  /* 发布作品 */
+/* 导航链接 / 按钮 / 抽屉链接内图标与文字居中对齐 + 间距 */
+.nav__link, .nav__drawer-link { display: inline-flex; align-items: center; gap: 6px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; }
+.nav__link .ri-gallery-line, .nav__link .ri-upload-2-line,
+.nav__drawer-link .ri-gallery-line, .nav__drawer-link .ri-upload-2-line,
+.btn .ri-gallery-line, .btn .ri-upload-2-line { font-size: 1.05em; }
+/* 后台侧栏快捷图标容器（原 15px 内联 SVG，现统一 Remix 字体图标） */
+.dash-side__ico .ri-gallery-line, .dash-side__ico .ri-upload-2-line { font-size: 15px; }
